@@ -30,6 +30,7 @@ export default function App() {
   const [editText, setEditText] = useState('');
   const [editBalance, setEditBalance] = useState(0);
   const [editAmount, setEditAmount] = useState(0);
+  const [editInfo, setEditInfo] = useState('');
   const [oneTimeAmount, setOneTimeAmount] = useState(10);
   const [showToast, setShowToast] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, type: 'node' | 'connection' | 'stage', targetId: string | null } | null>(null);
@@ -605,6 +606,7 @@ export default function App() {
     } else if (id.startsWith('conn-')) {
       const conn = target as ConnectionData;
       setEditAmount(conn.amount);
+      setEditInfo(conn.info || '');
     } else {
       const group = groups.find(g => g.id === id);
       setEditText(group?.title || '');
@@ -621,7 +623,7 @@ export default function App() {
         balance: editBalance
       } : n));
     } else if (isEditing.startsWith('conn-')) {
-      setConnections(connections.map(c => c.id === isEditing ? { ...c, amount: editAmount } : c));
+      setConnections(connections.map(c => c.id === isEditing ? { ...c, amount: editAmount, info: editInfo } : c));
     } else if (isEditing.startsWith('group-')) {
       setGroups(groups.map(g => g.id === isEditing ? { 
         ...g, 
@@ -1111,15 +1113,27 @@ export default function App() {
                 )}
 
                 {isEditing.startsWith('conn-') && (
-                  <div>
-                    <label className="text-white/50 text-[10px] uppercase font-bold mb-1 block">Payment Amount</label>
-                    <input 
-                      autoFocus
-                      type="number"
-                      value={editAmount}
-                      onChange={(e) => setEditAmount(Number(e.target.value))}
-                      className="w-full bg-neutral-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-white/50 text-[10px] uppercase font-bold mb-1 block">Payment Amount</label>
+                      <input 
+                        autoFocus
+                        type="number"
+                        value={editAmount}
+                        onChange={(e) => setEditAmount(Number(e.target.value))}
+                        className="w-full bg-neutral-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-white/50 text-[10px] uppercase font-bold mb-1 block">Supplementary Info</label>
+                      <input 
+                        type="text"
+                        value={editInfo}
+                        onChange={(e) => setEditInfo(e.target.value)}
+                        placeholder="Add notes..."
+                        className="w-full bg-neutral-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
                   </div>
                 )}
               </div>
@@ -1339,6 +1353,18 @@ export default function App() {
                     fontSize={10}
                     fontStyle="bold"
                   />
+                  {conn.info && (
+                    <Text
+                      text={conn.info}
+                      width={120}
+                      offsetX={60}
+                      y={12}
+                      align="center"
+                      fill="#94a3b8"
+                      fontSize={8}
+                      fontStyle="italic"
+                    />
+                  )}
                 </Group>
               </React.Fragment>
             );
@@ -1608,6 +1634,19 @@ export default function App() {
                   }
                   return null;
                 })()}
+                <button
+                  onClick={() => {
+                    if (contextMenu.targetId) {
+                      const conn = connections.find(c => c.id === contextMenu.targetId);
+                      if (conn) handleDoubleClick(conn.id, conn);
+                    }
+                    setContextMenu(null);
+                  }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-emerald-400 hover:bg-white/5 rounded-lg transition-colors"
+                >
+                  <Plus size={16} />
+                  <span>Add/Edit Info</span>
+                </button>
                 <button
                   onClick={() => contextMenu.targetId && deleteConnection(contextMenu.targetId)}
                   className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-400 hover:bg-white/5 rounded-lg transition-colors"

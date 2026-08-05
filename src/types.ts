@@ -23,6 +23,7 @@ export interface ConnectionData {
   fromId: string;
   toId: string;
   amount: number;
+  info?: string;
 }
 
 export interface GroupData {
