@@ -47,6 +47,7 @@ export default function App() {
   const [viewName, setViewName] = useState('');
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
   const [isEditingAutoPayments, setIsEditingAutoPayments] = useState<string | null>(null);
+  const [alignmentGuides, setAlignmentGuides] = useState<{ x?: number, y?: number }[]>([]);
 
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -410,7 +411,39 @@ export default function App() {
   };
 
   const handleDragMove = (id: string, e: Konva.KonvaEventObject<DragEvent>) => {
-    const { x, y } = e.target.position();
+    let { x, y } = e.target.position();
+    const snapThreshold = 5;
+    const newGuides: { x?: number, y?: number }[] = [];
+
+    if (id.startsWith('node-')) {
+      // Find other nodes for snapping
+      const otherNodes = nodes.filter(n => n.id !== id && !selectedNodeIds.includes(n.id));
+      
+      let snappedX = false;
+      let snappedY = false;
+
+      for (const other of otherNodes) {
+        // Horizontal snapping (match X)
+        if (!snappedX && Math.abs(x - other.x) < snapThreshold) {
+          x = other.x;
+          newGuides.push({ x: other.x });
+          snappedX = true;
+        }
+        // Vertical snapping (match Y)
+        if (!snappedY && Math.abs(y - other.y) < snapThreshold) {
+          y = other.y;
+          newGuides.push({ y: other.y });
+          snappedY = true;
+        }
+      }
+      
+      // Update position on the visual element if snapped
+      if (snappedX || snappedY) {
+        e.target.position({ x, y });
+      }
+      
+      setAlignmentGuides(newGuides);
+    }
 
     if (id.startsWith('group-')) {
       const group = groups.find(g => g.id === id);
@@ -457,6 +490,7 @@ export default function App() {
   const handleDragEnd = (id: string, e: Konva.KonvaEventObject<DragEvent>) => {
     const { x, y } = e.target.position();
     setDragTargetGroupId(null);
+    setAlignmentGuides([]);
     
     if (id.startsWith('node-')) {
       if (!selectedNodeIds.includes(id)) {
@@ -1600,6 +1634,20 @@ export default function App() {
               </Group>
             );
           })}
+
+          {/* Alignment Guides */}
+          {alignmentGuides.map((guide, i) => (
+            <Line
+              key={i}
+              points={guide.x !== undefined 
+                ? [guide.x, -10000, guide.x, 10000] 
+                : [-10000, guide.y!, 10000, guide.y!]}
+              stroke="#3b82f6"
+              strokeWidth={1}
+              dash={[5, 5]}
+              opacity={0.5}
+            />
+          ))}
         </Layer>
       </Stage>
 
