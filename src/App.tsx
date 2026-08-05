@@ -1358,7 +1358,23 @@ export default function App() {
                   draggable
                   onDragMove={(e) => {
                     const newPos = e.target.position();
+                    const dx = newPos.x - group.x;
+                    const dy = newPos.y - group.y;
+                    
+                    // Move the group
                     setGroups(prev => prev.map(g => g.id === group.id ? { ...g, x: newPos.x, y: newPos.y } : g));
+                    
+                    // Move nodes that are inside the group
+                    setNodes(prev => prev.map(node => {
+                      // Check if node was inside the group bounds before movement
+                      const isInside = node.x >= group.x && node.x <= group.x + group.width && 
+                                      node.y >= group.y && node.y <= group.y + group.height;
+                      
+                      if (isInside) {
+                        return { ...node, x: node.x + dx, y: node.y + dy };
+                      }
+                      return node;
+                    }));
                   }}
                   onMouseEnter={(e) => {
                     setHoveredId(group.id);
