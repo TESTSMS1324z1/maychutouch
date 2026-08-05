@@ -29,8 +29,12 @@ export interface GroupData {
   id: string;
   x: number;
   y: number;
+  width: number;
+  height: number;
   title: string;
   color: string;
+  balance: number;
+  autoPayments?: AutoPayment[];
 }
 
 export interface ViewPoint {

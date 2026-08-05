@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Stage, Layer, Rect, Text, Group, Line, Circle, Arrow } from 'react-konva';
+import { Stage, Layer, Rect, Text, Group, Line, Circle, Arrow, Transformer } from 'react-konva';
 import { NodeData, ConnectionData, GroupData, ViewPoint, AutoPayment } from './types';
 import { Plus, Trash2, Link2, Box, Move, Type, Palette, X, Save, FolderOpen, RotateCcw, Play, Coins, ArrowRightLeft, Download, Upload, Maximize, ArrowRight, MousePointer2, BoxSelect, Bookmark, MapPin, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -72,7 +72,15 @@ export default function App() {
         const { nodes: savedNodes, connections: savedConnections, groups: savedGroups, viewPoints: savedViewPoints } = JSON.parse(saved);
         if (savedNodes) setNodes(savedNodes);
         if (savedConnections) setConnections(savedConnections);
-        if (savedGroups) setGroups(savedGroups);
+        if (savedGroups) {
+          setGroups(savedGroups.map((g: any) => ({
+            ...g,
+            width: g.width || 200,
+            height: g.height || 120,
+            balance: g.balance || 0,
+            autoPayments: g.autoPayments || []
+          })));
+        }
         if (savedViewPoints) setViewPoints(savedViewPoints);
       } catch (e) {
         console.error('Failed to load initial state', e);
@@ -194,7 +202,13 @@ export default function App() {
         if (data.nodes && Array.isArray(data.nodes)) {
           setNodes(data.nodes);
           setConnections(data.connections || []);
-          setGroups(data.groups || []);
+          setGroups((data.groups || []).map((g: any) => ({
+            ...g,
+            width: g.width || 200,
+            height: g.height || 120,
+            balance: g.balance || 0,
+            autoPayments: g.autoPayments || []
+          })));
           setViewPoints(data.viewPoints || []);
           setSelectedId(null);
           setConnectingFrom(null);
@@ -236,18 +250,44 @@ export default function App() {
   };
 
   const executeOneTimePayment = (fromId: string, toId: string, amount: number) => {
+    let success = false;
+
+    // Check if source is a node or group
     setNodes(prevNodes => {
       const newNodes = [...prevNodes];
       const fromIdx = newNodes.findIndex(n => n.id === fromId);
       const toIdx = newNodes.findIndex(n => n.id === toId);
-      
-      if (fromIdx !== -1 && toIdx !== -1) {
+
+      if (fromIdx !== -1) {
         newNodes[fromIdx] = { ...newNodes[fromIdx], balance: newNodes[fromIdx].balance - amount };
+        success = true;
+      }
+      if (toIdx !== -1) {
         newNodes[toIdx] = { ...newNodes[toIdx], balance: newNodes[toIdx].balance + amount };
+        success = true;
       }
       return newNodes;
     });
-    triggerToast(`Sent $${amount} payment!`);
+
+    setGroups(prevGroups => {
+      const newGroups = [...prevGroups];
+      const fromIdx = newGroups.findIndex(g => g.id === fromId);
+      const toIdx = newGroups.findIndex(g => g.id === toId);
+
+      if (fromIdx !== -1) {
+        newGroups[fromIdx] = { ...newGroups[fromIdx], balance: (newGroups[fromIdx].balance || 0) - amount };
+        success = true;
+      }
+      if (toIdx !== -1) {
+        newGroups[toIdx] = { ...newGroups[toIdx], balance: (newGroups[toIdx].balance || 0) + amount };
+        success = true;
+      }
+      return newGroups;
+    });
+
+    if (success) {
+      triggerToast(`Sent $${amount} payment!`);
+    }
     setIsEditingOneTime(null);
   };
 
@@ -406,9 +446,8 @@ export default function App() {
 
       // Check for group proximity
       const groupUnder = groups.find(g => {
-        const dx = Math.abs(x - g.x);
-        const dy = Math.abs(y - g.y);
-        return dx < 100 && dy < 60;
+        return x >= g.x && x <= g.x + g.width && 
+               y >= g.y && y <= g.y + g.height;
       });
       setDragTargetGroupId(groupUnder ? groupUnder.id : null);
     }
@@ -425,9 +464,8 @@ export default function App() {
       
       // Check if dropped into a group
       const groupUnder = groups.find(g => {
-        const dx = Math.abs(x - g.x);
-        const dy = Math.abs(y - g.y);
-        return dx < 100 && dy < 60; // Basic proximity check
+        return x >= g.x && x <= g.x + g.width && 
+               y >= g.y && y <= g.y + g.height;
       });
 
       if (groupUnder) {
@@ -545,8 +583,12 @@ export default function App() {
       id: `group-${Date.now()}`,
       x: node.x,
       y: node.y,
+      width: 200,
+      height: 120,
       title: 'New Group',
       color: node.color,
+      balance: 0,
+      autoPayments: [],
     };
 
     setGroups([...groups, newGroup]);
@@ -566,6 +608,7 @@ export default function App() {
     } else {
       const group = groups.find(g => g.id === id);
       setEditText(group?.title || '');
+      setEditBalance(group?.balance || 0);
     }
   };
 
@@ -580,7 +623,11 @@ export default function App() {
     } else if (isEditing.startsWith('conn-')) {
       setConnections(connections.map(c => c.id === isEditing ? { ...c, amount: editAmount } : c));
     } else if (isEditing.startsWith('group-')) {
-      setGroups(groups.map(g => g.id === isEditing ? { ...g, title: editText } : g));
+      setGroups(groups.map(g => g.id === isEditing ? { 
+        ...g, 
+        title: editText,
+        balance: editBalance
+      } : g));
     }
     setIsEditing(null);
   };
@@ -1051,7 +1098,7 @@ export default function App() {
                   </div>
                 )}
                 
-                {isEditing.startsWith('node-') && (
+                {(isEditing.startsWith('node-') || isEditing.startsWith('group-')) && (
                   <div>
                     <label className="text-white/50 text-[10px] uppercase font-bold mb-1 block">Balance</label>
                     <input 
@@ -1299,60 +1346,130 @@ export default function App() {
 
           {/* Groups */}
           {groups.map(group => {
-            const isHovered = hoveredId === group.id;
             const isSelected = selectedId === group.id;
+            const isHovered = hoveredId === group.id;
             const isDragTarget = dragTargetGroupId === group.id;
             
             return (
-              <Group
-                key={group.id}
-                x={group.x}
-                y={group.y}
-                draggable
-                onDragMove={(e) => handleDragMove(group.id, e)}
-                onDragEnd={(e) => handleDragEnd(group.id, e)}
-                onClick={() => setSelectedId(group.id)}
-                onDblClick={() => handleDoubleClick(group.id)}
-                onMouseEnter={(e) => {
-                  setHoveredId(group.id);
-                  const stage = e.target.getStage();
-                  if (stage) stage.container().style.cursor = 'pointer';
-                }}
-                onMouseLeave={(e) => {
-                  setHoveredId(null);
-                  const stage = e.target.getStage();
-                  if (stage) stage.container().style.cursor = 'default';
-                }}
-                scaleX={isHovered || isDragTarget ? 1.02 : 1}
-                scaleY={isHovered || isDragTarget ? 1.02 : 1}
-              >
-                <Rect
-                  width={200}
-                  height={120}
-                  offsetX={100}
-                  offsetY={60}
-                  fill={group.color}
-                  opacity={isHovered || isDragTarget ? 0.25 : 0.15}
-                  stroke={isSelected || isDragTarget ? '#fff' : group.color}
-                  strokeWidth={isDragTarget ? 3 : 2}
-                  cornerRadius={12}
-                  dash={isDragTarget ? undefined : [5, 5]}
-                  shadowBlur={isHovered || isDragTarget ? 15 : 0}
-                  shadowColor={group.color}
-                  shadowOpacity={0.4}
-                />
-                <Text
-                  text={group.title}
-                  width={200}
-                  offsetX={100}
-                  y={-50}
-                  align="center"
-                  fill="#fff"
-                  fontSize={12}
-                  fontStyle="bold"
-                  opacity={isHovered || isDragTarget ? 1 : 0.8}
-                />
-              </Group>
+              <React.Fragment key={group.id}>
+                <Group
+                  x={group.x}
+                  y={group.y}
+                  draggable
+                  onDragMove={(e) => {
+                    const newPos = e.target.position();
+                    setGroups(prev => prev.map(g => g.id === group.id ? { ...g, x: newPos.x, y: newPos.y } : g));
+                  }}
+                  onMouseEnter={(e) => {
+                    setHoveredId(group.id);
+                    const stage = e.target.getStage();
+                    if (stage) stage.container().style.cursor = 'pointer';
+                  }}
+                  onMouseLeave={(e) => {
+                    setHoveredId(null);
+                    const stage = e.target.getStage();
+                    if (stage) stage.container().style.cursor = 'default';
+                  }}
+                  onClick={(e) => {
+                    if (oneTimeSourceId) {
+                      if (oneTimeSourceId !== group.id) {
+                        setIsEditingOneTime({ fromId: oneTimeSourceId, toId: group.id });
+                      }
+                      setOneTimeSourceId(null);
+                    } else {
+                      setSelectedId(group.id);
+                    }
+                  }}
+                  onDblClick={() => handleDoubleClick(group.id)}
+                  onContextMenu={(e) => handleContextMenu(e, 'node', group.id)}
+                >
+                  <Rect
+                    id={group.id}
+                    x={0}
+                    y={0}
+                    width={group.width}
+                    height={group.height}
+                    fill={group.color}
+                    opacity={isHovered || isDragTarget ? 0.25 : 0.15}
+                    stroke={isSelected || isDragTarget ? '#fff' : group.color}
+                    strokeWidth={isDragTarget ? 3 : 2}
+                    cornerRadius={12}
+                    dash={isDragTarget ? undefined : [5, 5]}
+                    shadowBlur={isHovered || isDragTarget ? 15 : 0}
+                    shadowColor={group.color}
+                    shadowOpacity={0.4}
+                    onTransform={(e) => {
+                      const node = e.target;
+                      const scaleX = node.scaleX();
+                      const scaleY = node.scaleY();
+                      const rectX = node.x();
+                      const rectY = node.y();
+
+                      // Reset Rect local transformations and apply to state
+                      node.scaleX(1);
+                      node.scaleY(1);
+                      node.x(0);
+                      node.y(0);
+
+                      setGroups(prev => prev.map(g => g.id === group.id ? {
+                        ...g,
+                        x: g.x + rectX,
+                        y: g.y + rectY,
+                        width: Math.max(50, g.width * scaleX),
+                        height: Math.max(50, g.height * scaleY),
+                      } : g));
+                    }}
+                  />
+                  <Text
+                    text={group.title}
+                    x={0}
+                    y={10}
+                    width={group.width}
+                    align="center"
+                    fill="#fff"
+                    fontSize={14}
+                    fontStyle="bold"
+                    opacity={0.6}
+                  />
+                  <Text
+                    text={`Balance: $${group.balance || 0}`}
+                    x={0}
+                    y={30}
+                    width={group.width}
+                    align="center"
+                    fill="#fff"
+                    fontSize={12}
+                    opacity={0.5}
+                  />
+                </Group>
+                {isSelected && (
+                  <Transformer
+                    anchorSize={8}
+                    anchorCornerRadius={2}
+                    anchorStroke="#3b82f6"
+                    anchorFill="#fff"
+                    borderStroke="#3b82f6"
+                    rotateEnabled={false}
+                    boundBoxFunc={(oldBox, newBox) => {
+                      if (newBox.width < 50 || newBox.height < 50) {
+                        return oldBox;
+                      }
+                      return newBox;
+                    }}
+                    ref={(node) => {
+                      if (node && isSelected) {
+                        const stage = stageRef.current;
+                        if (stage) {
+                          const target = stage.findOne(`#${group.id}`);
+                          if (target) {
+                            node.nodes([target]);
+                          }
+                        }
+                      }
+                    }}
+                  />
+                )}
+              </React.Fragment>
             );
           })}
 
