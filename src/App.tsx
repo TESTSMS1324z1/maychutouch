@@ -446,7 +446,7 @@ export default function App() {
   const handleDragMove = (id: string, e: Konva.KonvaEventObject<DragEvent>) => {
     let { x, y } = e.target.position();
     const snapThreshold = 3;
-    const maxGuideDistance = 400; // Only snap to nodes within this distance on the other axis
+    const maxGuideDistance = 200; // Only snap to nodes within this distance on the other axis
     const newGuides: { x?: number, y?: number }[] = [];
 
     if (id.startsWith('node-')) {
