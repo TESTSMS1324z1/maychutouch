@@ -1386,6 +1386,10 @@ export default function App() {
                     fill="#10b981"
                     fontSize={10}
                     fontStyle="bold"
+                    shadowColor="#000"
+                    shadowBlur={1}
+                    shadowOffset={{ x: 0.5, y: 0.5 }}
+                    shadowOpacity={1}
                   />
                   {conn.info && (
                     <Text
@@ -1397,6 +1401,10 @@ export default function App() {
                       fill="#94a3b8"
                       fontSize={8}
                       fontStyle="italic"
+                      shadowColor="#000"
+                      shadowBlur={1}
+                      shadowOffset={{ x: 0.5, y: 0.5 }}
+                      shadowOpacity={1}
                     />
                   )}
                 </Group>
@@ -1424,13 +1432,9 @@ export default function App() {
                     // Move the group
                     setGroups(prev => prev.map(g => g.id === group.id ? { ...g, x: newPos.x, y: newPos.y } : g));
                     
-                    // Move nodes that are inside the group
+                    // Move nodes that belong to this group
                     setNodes(prev => prev.map(node => {
-                      // Check if node was inside the group bounds before movement
-                      const isInside = node.x >= group.x && node.x <= group.x + group.width && 
-                                      node.y >= group.y && node.y <= group.y + group.height;
-                      
-                      if (isInside) {
+                      if (node.groupId === group.id) {
                         return { ...node, x: node.x + dx, y: node.y + dy };
                       }
                       return node;
@@ -1459,6 +1463,13 @@ export default function App() {
                   onDblClick={() => handleDoubleClick(group.id)}
                   onContextMenu={(e) => handleContextMenu(e, 'node', group.id)}
                 >
+                  {/* Opaque background to hide connections */}
+                  <Rect
+                    width={group.width}
+                    height={group.height}
+                    fill="#171717"
+                    cornerRadius={12}
+                  />
                   <Rect
                     id={group.id}
                     x={0}
@@ -1506,6 +1517,10 @@ export default function App() {
                     fontSize={14}
                     fontStyle="bold"
                     opacity={0.6}
+                    shadowColor="#000"
+                    shadowBlur={1}
+                    shadowOffset={{ x: 0.5, y: 0.5 }}
+                    shadowOpacity={1}
                   />
                   <Text
                     text={`Balance: $${group.balance || 0}`}
@@ -1516,6 +1531,10 @@ export default function App() {
                     fill="#fff"
                     fontSize={12}
                     opacity={0.5}
+                    shadowColor="#000"
+                    shadowBlur={1}
+                    shadowOffset={{ x: 0.5, y: 0.5 }}
+                    shadowOpacity={1}
                   />
                 </Group>
                 {isSelected && (
@@ -1611,6 +1630,10 @@ export default function App() {
                   fill="#fff"
                   fontSize={10}
                   fontStyle="bold"
+                  shadowColor="#000"
+                  shadowBlur={1}
+                  shadowOffset={{ x: 0.5, y: 0.5 }}
+                  shadowOpacity={1}
                 />
                 <Text
                   text={`Bal: $${node.balance}`}
@@ -1621,6 +1644,10 @@ export default function App() {
                   fill="#fff"
                   fontSize={9}
                   opacity={0.9}
+                  shadowColor="#000"
+                  shadowBlur={1}
+                  shadowOffset={{ x: 0.5, y: 0.5 }}
+                  shadowOpacity={1}
                 />
                 {node.groupId && (
                   <Circle
