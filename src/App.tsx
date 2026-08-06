@@ -412,10 +412,12 @@ export default function App() {
 
   const handleDragMove = (id: string, e: Konva.KonvaEventObject<DragEvent>) => {
     let { x, y } = e.target.position();
-    const snapThreshold = 5;
+    const snapThreshold = 3;
+    const maxGuideDistance = 400; // Only snap to nodes within this distance on the other axis
     const newGuides: { x?: number, y?: number }[] = [];
 
     if (id.startsWith('node-')) {
+      const currentNode = nodes.find(n => n.id === id);
       // Find other nodes for snapping
       const otherNodes = nodes.filter(n => n.id !== id && !selectedNodeIds.includes(n.id));
       
@@ -423,17 +425,21 @@ export default function App() {
       let snappedY = false;
 
       for (const other of otherNodes) {
-        // Horizontal snapping (match X)
+        // Horizontal snapping (match X) - only if vertically somewhat close
         if (!snappedX && Math.abs(x - other.x) < snapThreshold) {
-          x = other.x;
-          newGuides.push({ x: other.x });
-          snappedX = true;
+          if (Math.abs(y - other.y) < maxGuideDistance) {
+            x = other.x;
+            newGuides.push({ x: other.x });
+            snappedX = true;
+          }
         }
-        // Vertical snapping (match Y)
+        // Vertical snapping (match Y) - only if horizontally somewhat close
         if (!snappedY && Math.abs(y - other.y) < snapThreshold) {
-          y = other.y;
-          newGuides.push({ y: other.y });
-          snappedY = true;
+          if (Math.abs(x - other.x) < maxGuideDistance) {
+            y = other.y;
+            newGuides.push({ y: other.y });
+            snappedY = true;
+          }
         }
       }
       
