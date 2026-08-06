@@ -43,6 +43,7 @@ export default function App() {
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [viewPoints, setViewPoints] = useState<ViewPoint[]>([]);
   const [showViewPoints, setShowViewPoints] = useState(false);
+  const [showRainbow, setShowRainbow] = useState(false);
   const [isSavingView, setIsSavingView] = useState(false);
   const [viewName, setViewName] = useState('');
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
@@ -596,6 +597,9 @@ export default function App() {
   };
 
   const nextTurn = () => {
+    setShowRainbow(true);
+    setTimeout(() => setShowRainbow(false), 1000);
+
     setNodes(prevNodes => {
       const newNodes = [...prevNodes];
       
@@ -714,178 +718,190 @@ export default function App() {
   return (
     <div ref={containerRef} className="relative w-full h-screen bg-neutral-900 overflow-hidden">
       {/* Toolbar */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 p-1 bg-neutral-800/90 backdrop-blur-md border border-white/10 rounded-full shadow-2xl">
-        <button 
-          onClick={nextTurn}
-          className="p-2 hover:bg-emerald-500/20 text-emerald-400 rounded-full transition-colors"
-          title="Next Turn"
-        >
-          <Play size={18} />
-        </button>
-
-        <div className="w-px h-4 bg-white/10 mx-0.5" />
-        <button 
-          onClick={addNode}
-          className="p-2 hover:bg-white/10 rounded-full transition-colors text-white"
-          title="Add Block"
-        >
-          <Plus size={18} />
-        </button>
-
-        <button 
-          onClick={() => {
-            setIsSelectMode(!isSelectMode);
-            setSelectedNodeIds([]);
-          }}
-          className={`p-2 rounded-full transition-colors ${isSelectMode ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-white/10 text-white/70'}`}
-          title={isSelectMode ? "Switch to Pan Mode" : "Switch to Select Mode"}
-        >
-          {isSelectMode ? <BoxSelect size={18} /> : <MousePointer2 size={18} />}
-        </button>
-        
-        <div className="w-px h-4 bg-white/10 mx-0.5" />
-        
-        <button 
-          onClick={() => selectedId && setConnectingFrom(selectedId)}
-          disabled={!selectedId || !selectedId.startsWith('node-')}
-          className={`p-2 rounded-full transition-colors ${
-            connectingFrom ? 'bg-blue-500 text-white' : 'hover:bg-white/10 text-white/70 disabled:opacity-30'
+      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10 p-[1.5px] rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.4)] overflow-hidden">
+        {/* Rainbow Layer */}
+        <div 
+          className={`absolute inset-0 bg-[linear-gradient(90deg,#ffadad,#ffd6a5,#fdffb6,#caffbf,#9bf6ff,#a0c4ff,#bdb2ff,#ffc6ff,#ffadad)] animate-rainbow-flow transition-opacity duration-700 ${
+            showRainbow ? "opacity-100" : "opacity-0"
           }`}
-          title="Connect Blocks"
-        >
-          <Link2 size={18} />
-        </button>
+        />
+        
+        {/* Base Border Layer (visible when rainbow is off) */}
+        <div className={`absolute inset-0 bg-white/10 transition-opacity duration-700 ${showRainbow ? "opacity-0" : "opacity-100"}`} />
 
-        <button 
-          onClick={createGroup}
-          disabled={!selectedId || !selectedId.startsWith('node-')}
-          className="p-2 hover:bg-white/10 text-white/70 disabled:opacity-30 rounded-full transition-colors"
-          title="Create Group"
-        >
-          <Box size={18} />
-        </button>
+        <div className="relative flex items-center gap-1.5 p-1.5 bg-neutral-900/20 backdrop-blur-2xl backdrop-saturate-150 backdrop-brightness-125 rounded-full ring-1 ring-white/20 ring-inset">
+          <button 
+            onClick={nextTurn}
+            className="p-2.5 hover:bg-emerald-500/20 text-emerald-400 rounded-full transition-all active:scale-95 group"
+            title="Next Turn"
+          >
+            <Play size={18} className="group-hover:scale-110 transition-transform" />
+          </button>
 
-        <button 
-          onClick={deleteSelected}
-          disabled={!selectedId}
-          className="p-2 hover:bg-red-500/20 text-red-400 disabled:opacity-30 rounded-full transition-colors"
-          title="Delete"
-        >
-          <Trash2 size={18} />
-        </button>
+          <div className="w-px h-5 bg-white/10 mx-1" />
+          <button 
+            onClick={addNode}
+            className="p-2.5 hover:bg-white/10 rounded-full transition-all active:scale-95 text-white/90 group"
+            title="Add Block"
+          >
+            <Plus size={18} className="group-hover:scale-110 transition-transform" />
+          </button>
 
-        <div className="w-px h-4 bg-white/10 mx-0.5" />
-
-        <button 
-          onClick={saveToLocal}
-          className="p-2 hover:bg-white/10 text-white/70 rounded-full transition-colors"
-          title="Save to Browser"
-        >
-          <Save size={18} />
-        </button>
-
-        <button 
-          onClick={loadFromLocal}
-          className="p-2 hover:bg-white/10 text-white/70 rounded-full transition-colors"
-          title="Load from Browser"
-        >
-          <FolderOpen size={18} />
-        </button>
-
-        <button 
-          onClick={clearCanvas}
-          className="p-2 hover:bg-red-500/20 text-red-400 rounded-full transition-colors"
-          title="Clear Canvas"
-        >
-          <RotateCcw size={18} />
-        </button>
-
-        <div className="w-px h-4 bg-white/10 mx-0.5" />
-
-        <button 
-          onClick={resetView}
-          className="p-2 hover:bg-white/10 text-white/70 rounded-full transition-colors"
-          title="Reset View"
-        >
-          <Maximize size={18} />
-        </button>
-
-        <div className="w-px h-4 bg-white/10 mx-0.5" />
-
-        <button 
-          onClick={exportToJson}
-          className="p-2 hover:bg-white/10 text-white/70 rounded-full transition-colors"
-          title="Export to JSON"
-        >
-          <Download size={18} />
-        </button>
-
-        <label className="p-2 hover:bg-white/10 text-white/70 rounded-full transition-colors cursor-pointer" title="Import from JSON">
-          <Upload size={18} />
-          <input 
-            type="file" 
-            accept=".json" 
-            onChange={importFromJson} 
-            className="hidden" 
-          />
-        </label>
-
-        <div className="w-px h-4 bg-white/10 mx-0.5" />
-
-        <div className="flex gap-1 px-1 items-center">
-          {COLORS.map(color => (
-            <button
-              key={color}
-              onClick={() => {
-                if (!selectedId) return;
-                if (selectedId.startsWith('node-')) {
-                  setNodes(nodes.map(n => n.id === selectedId ? { ...n, color } : n));
-                } else if (selectedId.startsWith('group-')) {
-                  setGroups(groups.map(g => g.id === selectedId ? { ...g, color } : g));
-                }
-              }}
-              className="w-4 h-4 rounded-full border border-white/20 hover:scale-110 transition-transform"
-              style={{ backgroundColor: color }}
-            />
-          ))}
+          <button 
+            onClick={() => {
+              setIsSelectMode(!isSelectMode);
+              setSelectedNodeIds([]);
+            }}
+            className={`p-2.5 rounded-full transition-all active:scale-95 group ${isSelectMode ? 'bg-blue-500/30 text-blue-300 ring-1 ring-blue-500/50' : 'hover:bg-white/10 text-white/70'}`}
+            title={isSelectMode ? "Switch to Pan Mode" : "Switch to Select Mode"}
+          >
+            {isSelectMode ? <BoxSelect size={18} className="group-hover:scale-110 transition-transform" /> : <MousePointer2 size={18} className="group-hover:scale-110 transition-transform" />}
+          </button>
           
-          <div className="w-px h-4 bg-white/10 mx-1" />
+          <div className="w-px h-5 bg-white/10 mx-1" />
           
-          <label className="relative flex items-center justify-center w-6 h-6 rounded-full hover:bg-white/10 transition-colors cursor-pointer group" title="Custom Color">
-            <Palette size={14} className="text-white/70 group-hover:text-white" />
+          <button 
+            onClick={() => selectedId && setConnectingFrom(selectedId)}
+            disabled={!selectedId || !selectedId.startsWith('node-')}
+            className={`p-2.5 rounded-full transition-all active:scale-95 group ${
+              connectingFrom ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'hover:bg-white/10 text-white/70 disabled:opacity-20'
+            }`}
+            title="Connect Blocks"
+          >
+            <Link2 size={18} className="group-hover:scale-110 transition-transform" />
+          </button>
+
+          <button 
+            onClick={createGroup}
+            disabled={!selectedId || !selectedId.startsWith('node-')}
+            className="p-2.5 hover:bg-white/10 text-white/70 disabled:opacity-20 rounded-full transition-all active:scale-95 group"
+            title="Create Group"
+          >
+            <Box size={18} className="group-hover:scale-110 transition-transform" />
+          </button>
+
+          <button 
+            onClick={deleteSelected}
+            disabled={!selectedId}
+            className="p-2.5 hover:bg-red-500/20 text-red-400 disabled:opacity-20 rounded-full transition-all active:scale-95 group"
+            title="Delete"
+          >
+            <Trash2 size={18} className="group-hover:scale-110 transition-transform" />
+          </button>
+
+          <div className="w-px h-5 bg-white/10 mx-1" />
+
+          <button 
+            onClick={saveToLocal}
+            className="p-2.5 hover:bg-white/10 text-white/70 rounded-full transition-all active:scale-95 group"
+            title="Save to Browser"
+          >
+            <Save size={18} className="group-hover:scale-110 transition-transform" />
+          </button>
+
+          <button 
+            onClick={loadFromLocal}
+            className="p-2.5 hover:bg-white/10 text-white/70 rounded-full transition-all active:scale-95 group"
+            title="Load from Browser"
+          >
+            <FolderOpen size={18} className="group-hover:scale-110 transition-transform" />
+          </button>
+
+          <button 
+            onClick={clearCanvas}
+            className="p-2.5 hover:bg-red-500/20 text-red-400 rounded-full transition-all active:scale-95 group"
+            title="Clear Canvas"
+          >
+            <RotateCcw size={18} className="group-hover:scale-110 transition-transform" />
+          </button>
+
+          <div className="w-px h-5 bg-white/10 mx-1" />
+
+          <button 
+            onClick={resetView}
+            className="p-2.5 hover:bg-white/10 text-white/70 rounded-full transition-all active:scale-95 group"
+            title="Reset View"
+          >
+            <Maximize size={18} className="group-hover:scale-110 transition-transform" />
+          </button>
+
+          <div className="w-px h-5 bg-white/10 mx-1" />
+
+          <button 
+            onClick={exportToJson}
+            className="p-2.5 hover:bg-white/10 text-white/70 rounded-full transition-all active:scale-95 group"
+            title="Export to JSON"
+          >
+            <Download size={18} className="group-hover:scale-110 transition-transform" />
+          </button>
+
+          <label className="p-2.5 hover:bg-white/10 text-white/70 rounded-full transition-all active:scale-95 cursor-pointer group" title="Import from JSON">
+            <Upload size={18} className="group-hover:scale-110 transition-transform" />
             <input 
-              type="color"
-              className="absolute inset-0 opacity-0 cursor-pointer"
-              onChange={(e) => {
-                const color = e.target.value;
-                if (!selectedId) return;
-                if (selectedId.startsWith('node-')) {
-                  setNodes(nodes.map(n => n.id === selectedId ? { ...n, color } : n));
-                } else if (selectedId.startsWith('group-')) {
-                  setGroups(groups.map(g => g.id === selectedId ? { ...g, color } : g));
-                }
-              }}
+              type="file" 
+              accept=".json" 
+              onChange={importFromJson} 
+              className="hidden" 
             />
           </label>
+
+          <div className="w-px h-4 bg-white/10 mx-0.5" />
+
+          <div className="flex gap-1.5 px-1.5 items-center">
+            {COLORS.map(color => (
+              <button
+                key={color}
+                onClick={() => {
+                  if (!selectedId) return;
+                  if (selectedId.startsWith('node-')) {
+                    setNodes(nodes.map(n => n.id === selectedId ? { ...n, color } : n));
+                  } else if (selectedId.startsWith('group-')) {
+                    setGroups(groups.map(g => g.id === selectedId ? { ...g, color } : g));
+                  }
+                }}
+                className="w-5 h-5 rounded-full border border-white/20 transition-all hover:scale-125 active:scale-90 shadow-sm"
+                style={{ backgroundColor: color }}
+              />
+            ))}
+            
+            <div className="w-px h-5 bg-white/10 mx-1" />
+            
+            <label className="relative flex items-center justify-center w-7 h-7 rounded-full hover:bg-white/10 transition-all cursor-pointer group active:scale-90" title="Custom Color">
+              <Palette size={16} className="text-white/70 group-hover:text-white transition-colors" />
+              <input 
+                type="color"
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                onChange={(e) => {
+                  const color = e.target.value;
+                  if (!selectedId) return;
+                  if (selectedId.startsWith('node-')) {
+                    setNodes(nodes.map(n => n.id === selectedId ? { ...n, color } : n));
+                  } else if (selectedId.startsWith('group-')) {
+                    setGroups(groups.map(g => g.id === selectedId ? { ...g, color } : g));
+                  }
+                }}
+              />
+            </label>
+          </div>
+
+          <div className="w-px h-5 bg-white/10 mx-1" />
+
+          <button 
+            onClick={saveCurrentView}
+            className="p-2.5 hover:bg-white/10 text-white/70 rounded-full transition-all active:scale-95 group"
+            title="Save Current Viewpoint"
+          >
+            <MapPin size={18} className="group-hover:scale-110 transition-transform" />
+          </button>
+
+          <button 
+            onClick={() => setShowViewPoints(!showViewPoints)}
+            className={`p-2.5 rounded-full transition-all active:scale-95 group ${showViewPoints ? 'bg-amber-500/30 text-amber-300 ring-1 ring-amber-500/50' : 'hover:bg-white/10 text-white/70'}`}
+            title="Viewpoints List"
+          >
+            <Bookmark size={18} className="group-hover:scale-110 transition-transform" />
+          </button>
         </div>
-
-        <div className="w-px h-4 bg-white/10 mx-0.5" />
-
-        <button 
-          onClick={saveCurrentView}
-          className="p-2 hover:bg-white/10 text-white/70 rounded-full transition-colors"
-          title="Save Current Viewpoint"
-        >
-          <MapPin size={18} />
-        </button>
-
-        <button 
-          onClick={() => setShowViewPoints(!showViewPoints)}
-          className={`p-2 rounded-full transition-colors ${showViewPoints ? 'bg-amber-500/20 text-amber-400' : 'hover:bg-white/10 text-white/70'}`}
-          title="Viewpoints List"
-        >
-          <Bookmark size={18} />
-        </button>
       </div>
 
       {/* Viewpoints Panel */}
