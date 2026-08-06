@@ -51,6 +51,12 @@ export default function App() {
 
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const dragStartInfoRef = useRef<{
+    id: string;
+    startX: number;
+    startY: number;
+    nodePositions: Map<string, { x: number, y: number }>;
+  } | null>(null);
 
   useEffect(() => {
     const handleResize = () => {
@@ -410,6 +416,33 @@ export default function App() {
     } : n));
   };
 
+  const handleDragStart = (id: string, e: Konva.KonvaEventObject<DragEvent>) => {
+    const pos = e.target.position();
+    const nodePositions = new Map<string, { x: number, y: number }>();
+    
+    if (id.startsWith('group-')) {
+      nodes.filter(n => n.groupId === id).forEach(n => {
+        nodePositions.set(n.id, { x: n.x, y: n.y });
+      });
+    } else if (id.startsWith('node-')) {
+      if (selectedNodeIds.includes(id)) {
+        nodes.filter(n => selectedNodeIds.includes(n.id)).forEach(n => {
+          nodePositions.set(n.id, { x: n.x, y: n.y });
+        });
+      } else {
+        const node = nodes.find(n => n.id === id);
+        if (node) nodePositions.set(node.id, { x: node.x, y: node.y });
+      }
+    }
+
+    dragStartInfoRef.current = {
+      id,
+      startX: pos.x,
+      startY: pos.y,
+      nodePositions
+    };
+  };
+
   const handleDragMove = (id: string, e: Konva.KonvaEventObject<DragEvent>) => {
     let { x, y } = e.target.position();
     const snapThreshold = 3;
@@ -452,33 +485,36 @@ export default function App() {
     }
 
     if (id.startsWith('group-')) {
-      const group = groups.find(g => g.id === id);
-      if (!group) return;
+      if (dragStartInfoRef.current?.id === id) {
+        const { startX, startY, nodePositions } = dragStartInfoRef.current;
+        const dx = x - startX;
+        const dy = y - startY;
 
-      const dx = x - group.x;
-      const dy = y - group.y;
-
-      // Move children nodes
-      setNodes(prevNodes => prevNodes.map(n => 
-        n.groupId === id ? { ...n, x: n.x + dx, y: n.y + dy } : n
-      ));
+        setNodes(prevNodes => prevNodes.map(n => {
+          const startPos = nodePositions.get(n.id);
+          if (startPos) {
+            return { ...n, x: startPos.x + dx, y: startPos.y + dy };
+          }
+          return n;
+        }));
+      }
       
-      // Update group position
-      setGroups(prevGroups => prevGroups.map(g => 
-        g.id === id ? { ...g, x, y } : g
-      ));
+      setGroups(prevGroups => prevGroups.map(g => g.id === id ? { ...g, x, y } : g));
     } else if (id.startsWith('node-')) {
-      // If node is part of a selection, move all selected nodes
       if (selectedNodeIds.includes(id)) {
-        const node = nodes.find(n => n.id === id);
-        if (!node) return;
+        if (dragStartInfoRef.current?.id === id) {
+          const { startX, startY, nodePositions } = dragStartInfoRef.current;
+          const dx = x - startX;
+          const dy = y - startY;
 
-        const dx = x - node.x;
-        const dy = y - node.y;
-
-        setNodes(prevNodes => prevNodes.map(n => 
-          selectedNodeIds.includes(n.id) ? { ...n, x: n.x + dx, y: n.y + dy } : n
-        ));
+          setNodes(prevNodes => prevNodes.map(n => {
+            const startPos = nodePositions.get(n.id);
+            if (startPos) {
+              return { ...n, x: startPos.x + dx, y: startPos.y + dy };
+            }
+            return n;
+          }));
+        }
       } else {
         // Just move this node
         setNodes(prevNodes => prevNodes.map(n => n.id === id ? { ...n, x, y } : n));
@@ -497,6 +533,7 @@ export default function App() {
     const { x, y } = e.target.position();
     setDragTargetGroupId(null);
     setAlignmentGuides([]);
+    dragStartInfoRef.current = null;
     
     if (id.startsWith('node-')) {
       if (!selectedNodeIds.includes(id)) {
@@ -1430,22 +1467,9 @@ export default function App() {
                   x={group.x}
                   y={group.y}
                   draggable
-                  onDragMove={(e) => {
-                    const newPos = e.target.position();
-                    const dx = newPos.x - group.x;
-                    const dy = newPos.y - group.y;
-                    
-                    // Move the group
-                    setGroups(prev => prev.map(g => g.id === group.id ? { ...g, x: newPos.x, y: newPos.y } : g));
-                    
-                    // Move nodes that belong to this group
-                    setNodes(prev => prev.map(node => {
-                      if (node.groupId === group.id) {
-                        return { ...node, x: node.x + dx, y: node.y + dy };
-                      }
-                      return node;
-                    }));
-                  }}
+                  onDragStart={(e) => handleDragStart(group.id, e)}
+                  onDragMove={(e) => handleDragMove(group.id, e)}
+                  onDragEnd={(e) => handleDragEnd(group.id, e)}
                   onMouseEnter={(e) => {
                     setHoveredId(group.id);
                     const stage = e.target.getStage();
@@ -1586,6 +1610,7 @@ export default function App() {
                 x={node.x}
                 y={node.y}
                 draggable
+                onDragStart={(e) => handleDragStart(node.id, e)}
                 onDragMove={(e) => handleDragMove(node.id, e)}
                 onDragEnd={(e) => handleDragEnd(node.id, e)}
                 onClick={(e) => {
