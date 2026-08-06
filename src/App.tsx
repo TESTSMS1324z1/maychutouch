@@ -714,10 +714,10 @@ export default function App() {
   return (
     <div ref={containerRef} className="relative w-full h-screen bg-neutral-900 overflow-hidden">
       {/* Toolbar */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 p-1 bg-neutral-800/90 backdrop-blur-md border border-white/10 rounded-xl shadow-2xl">
+      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-1 p-1 bg-neutral-800/90 backdrop-blur-md border border-white/10 rounded-full shadow-2xl">
         <button 
           onClick={nextTurn}
-          className="p-2 hover:bg-emerald-500/20 text-emerald-400 rounded-lg transition-colors"
+          className="p-2 hover:bg-emerald-500/20 text-emerald-400 rounded-full transition-colors"
           title="Next Turn"
         >
           <Play size={18} />
@@ -726,7 +726,7 @@ export default function App() {
         <div className="w-px h-4 bg-white/10 mx-0.5" />
         <button 
           onClick={addNode}
-          className="p-2 hover:bg-white/10 rounded-lg transition-colors text-white"
+          className="p-2 hover:bg-white/10 rounded-full transition-colors text-white"
           title="Add Block"
         >
           <Plus size={18} />
@@ -737,7 +737,7 @@ export default function App() {
             setIsSelectMode(!isSelectMode);
             setSelectedNodeIds([]);
           }}
-          className={`p-2 rounded-lg transition-colors ${isSelectMode ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-white/10 text-white/70'}`}
+          className={`p-2 rounded-full transition-colors ${isSelectMode ? 'bg-blue-500/20 text-blue-400' : 'hover:bg-white/10 text-white/70'}`}
           title={isSelectMode ? "Switch to Pan Mode" : "Switch to Select Mode"}
         >
           {isSelectMode ? <BoxSelect size={18} /> : <MousePointer2 size={18} />}
@@ -748,7 +748,7 @@ export default function App() {
         <button 
           onClick={() => selectedId && setConnectingFrom(selectedId)}
           disabled={!selectedId || !selectedId.startsWith('node-')}
-          className={`p-2 rounded-lg transition-colors ${
+          className={`p-2 rounded-full transition-colors ${
             connectingFrom ? 'bg-blue-500 text-white' : 'hover:bg-white/10 text-white/70 disabled:opacity-30'
           }`}
           title="Connect Blocks"
@@ -759,7 +759,7 @@ export default function App() {
         <button 
           onClick={createGroup}
           disabled={!selectedId || !selectedId.startsWith('node-')}
-          className="p-2 hover:bg-white/10 text-white/70 disabled:opacity-30 rounded-lg transition-colors"
+          className="p-2 hover:bg-white/10 text-white/70 disabled:opacity-30 rounded-full transition-colors"
           title="Create Group"
         >
           <Box size={18} />
@@ -768,7 +768,7 @@ export default function App() {
         <button 
           onClick={deleteSelected}
           disabled={!selectedId}
-          className="p-2 hover:bg-red-500/20 text-red-400 disabled:opacity-30 rounded-lg transition-colors"
+          className="p-2 hover:bg-red-500/20 text-red-400 disabled:opacity-30 rounded-full transition-colors"
           title="Delete"
         >
           <Trash2 size={18} />
@@ -778,7 +778,7 @@ export default function App() {
 
         <button 
           onClick={saveToLocal}
-          className="p-2 hover:bg-white/10 text-white/70 rounded-lg transition-colors"
+          className="p-2 hover:bg-white/10 text-white/70 rounded-full transition-colors"
           title="Save to Browser"
         >
           <Save size={18} />
@@ -786,7 +786,7 @@ export default function App() {
 
         <button 
           onClick={loadFromLocal}
-          className="p-2 hover:bg-white/10 text-white/70 rounded-lg transition-colors"
+          className="p-2 hover:bg-white/10 text-white/70 rounded-full transition-colors"
           title="Load from Browser"
         >
           <FolderOpen size={18} />
@@ -794,7 +794,7 @@ export default function App() {
 
         <button 
           onClick={clearCanvas}
-          className="p-2 hover:bg-red-500/20 text-red-400 rounded-lg transition-colors"
+          className="p-2 hover:bg-red-500/20 text-red-400 rounded-full transition-colors"
           title="Clear Canvas"
         >
           <RotateCcw size={18} />
@@ -804,7 +804,7 @@ export default function App() {
 
         <button 
           onClick={resetView}
-          className="p-2 hover:bg-white/10 text-white/70 rounded-lg transition-colors"
+          className="p-2 hover:bg-white/10 text-white/70 rounded-full transition-colors"
           title="Reset View"
         >
           <Maximize size={18} />
@@ -814,13 +814,13 @@ export default function App() {
 
         <button 
           onClick={exportToJson}
-          className="p-2 hover:bg-white/10 text-white/70 rounded-lg transition-colors"
+          className="p-2 hover:bg-white/10 text-white/70 rounded-full transition-colors"
           title="Export to JSON"
         >
           <Download size={18} />
         </button>
 
-        <label className="p-2 hover:bg-white/10 text-white/70 rounded-lg transition-colors cursor-pointer" title="Import from JSON">
+        <label className="p-2 hover:bg-white/10 text-white/70 rounded-full transition-colors cursor-pointer" title="Import from JSON">
           <Upload size={18} />
           <input 
             type="file" 
@@ -851,7 +851,7 @@ export default function App() {
           
           <div className="w-px h-4 bg-white/10 mx-1" />
           
-          <label className="relative flex items-center justify-center w-6 h-6 rounded-lg hover:bg-white/10 transition-colors cursor-pointer group" title="Custom Color">
+          <label className="relative flex items-center justify-center w-6 h-6 rounded-full hover:bg-white/10 transition-colors cursor-pointer group" title="Custom Color">
             <Palette size={14} className="text-white/70 group-hover:text-white" />
             <input 
               type="color"
@@ -873,7 +873,7 @@ export default function App() {
 
         <button 
           onClick={saveCurrentView}
-          className="p-2 hover:bg-white/10 text-white/70 rounded-lg transition-colors"
+          className="p-2 hover:bg-white/10 text-white/70 rounded-full transition-colors"
           title="Save Current Viewpoint"
         >
           <MapPin size={18} />
@@ -881,7 +881,7 @@ export default function App() {
 
         <button 
           onClick={() => setShowViewPoints(!showViewPoints)}
-          className={`p-2 rounded-lg transition-colors ${showViewPoints ? 'bg-amber-500/20 text-amber-400' : 'hover:bg-white/10 text-white/70'}`}
+          className={`p-2 rounded-full transition-colors ${showViewPoints ? 'bg-amber-500/20 text-amber-400' : 'hover:bg-white/10 text-white/70'}`}
           title="Viewpoints List"
         >
           <Bookmark size={18} />
