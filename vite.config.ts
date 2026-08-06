@@ -18,15 +18,23 @@ export default defineConfig(({mode}) => {
     },
     build: {
       sourcemap: false,
+      minify: 'esbuild',
+      cssMinify: true,
       chunkSizeWarningLimit: 2000,
+      reportCompressedSize: false, // Disable to save time
       rollupOptions: {
         output: {
           manualChunks: {
-            'vendor-konva': ['konva', 'react-konva'],
-            'vendor-react': ['react', 'react-dom'],
+            'konva-vendor': ['konva', 'react-konva'],
+            'react-vendor': ['react', 'react-dom'],
+            'icons': ['lucide-react'],
           },
         },
       },
+    },
+    worker: {
+      format: 'es',
+      plugins: () => [react()],
     },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
