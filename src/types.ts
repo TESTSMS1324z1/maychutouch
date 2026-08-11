@@ -9,6 +9,7 @@ export interface AutoPayment {
 
 export interface NodeData {
   id: string;
+  type?: 'default' | 'calculator';
   x: number;
   y: number;
   text: string;
@@ -16,6 +17,8 @@ export interface NodeData {
   groupId?: string;
   balance: number;
   autoPayments?: AutoPayment[];
+  formula?: string;
+  result?: number | string;
 }
 
 export interface ConnectionData {

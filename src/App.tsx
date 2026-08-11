@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Stage, Layer, Rect, Text, Group, Line, Circle, Arrow, Transformer } from 'react-konva';
 import { NodeData, ConnectionData, GroupData, ViewPoint, AutoPayment } from './types';
-import { Plus, Trash2, Link2, Box, Move, Type, Palette, X, Save, FolderOpen, RotateCcw, Play, Coins, ArrowRightLeft, Download, Upload, Maximize, ArrowRight, MousePointer2, BoxSelect, Bookmark, MapPin, Settings } from 'lucide-react';
+import { Plus, Trash2, Link2, Box, Move, Type, Palette, X, Save, FolderOpen, RotateCcw, Play, Coins, ArrowRightLeft, Download, Upload, Maximize, ArrowRight, MousePointer2, BoxSelect, Bookmark, MapPin, Settings, Calculator, Terminal } from 'lucide-react';
+import { evaluate } from 'mathjs';
 import { motion, AnimatePresence } from 'motion/react';
 import Konva from 'konva';
 
@@ -29,6 +30,7 @@ export default function App() {
   const [isEditingOneTime, setIsEditingOneTime] = useState<{ fromId: string, toId: string } | null>(null);
   const [editText, setEditText] = useState('');
   const [editBalance, setEditBalance] = useState(0);
+  const [editFormula, setEditFormula] = useState('');
   const [editAmount, setEditAmount] = useState(0);
   const [editInfo, setEditInfo] = useState('');
   const [oneTimeAmount, setOneTimeAmount] = useState(10);
@@ -44,6 +46,8 @@ export default function App() {
   const [viewPoints, setViewPoints] = useState<ViewPoint[]>([]);
   const [showViewPoints, setShowViewPoints] = useState(false);
   const [showRainbow, setShowRainbow] = useState(false);
+  const [command, setCommand] = useState('');
+  const [showCommandInput, setShowCommandInput] = useState(false);
   const [isSavingView, setIsSavingView] = useState(false);
   const [viewName, setViewName] = useState('');
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
@@ -417,6 +421,32 @@ export default function App() {
     } : n));
   };
 
+  const handleCommand = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cmd = command.trim().toLowerCase();
+    
+    if (cmd === '/cal' || cmd === '/calculator') {
+      const newNode: NodeData = {
+        id: `node-${Date.now()}`,
+        type: 'calculator',
+        x: Math.random() * 500,
+        y: Math.random() * 500,
+        text: 'Calculator',
+        formula: '1 + 1',
+        result: 2,
+        color: '#8b5cf6',
+        balance: 0
+      };
+      setNodes([...nodes, newNode]);
+      triggerToast('Calculator block added');
+    } else {
+      triggerToast('Unknown command');
+    }
+    
+    setCommand('');
+    setShowCommandInput(false);
+  };
+
   const handleDragStart = (id: string, e: Konva.KonvaEventObject<DragEvent>) => {
     const pos = e.target.position();
     const nodePositions = new Map<string, { x: number, y: number }>();
@@ -684,6 +714,7 @@ export default function App() {
       const node = target as NodeData;
       setEditText(node.text);
       setEditBalance(node.balance);
+      setEditFormula(node.formula || '');
     } else if (id.startsWith('conn-')) {
       const conn = target as ConnectionData;
       setEditAmount(conn.amount);
@@ -698,11 +729,22 @@ export default function App() {
   const saveEdit = () => {
     if (!isEditing) return;
     if (isEditing.startsWith('node-')) {
-      setNodes(nodes.map(n => n.id === isEditing ? { 
-        ...n, 
-        text: editText, 
-        balance: editBalance
-      } : n));
+      setNodes(nodes.map(n => {
+        if (n.id === isEditing) {
+          let updatedNode = { ...n, text: editText, balance: editBalance };
+          if (n.type === 'calculator') {
+            try {
+              const result = evaluate(editFormula);
+              updatedNode = { ...updatedNode, formula: editFormula, result: typeof result === 'number' ? result : result.toString() };
+            } catch (err) {
+              triggerToast('Invalid formula');
+              return n;
+            }
+          }
+          return updatedNode;
+        }
+        return n;
+      }));
     } else if (isEditing.startsWith('conn-')) {
       setConnections(connections.map(c => c.id === isEditing ? { ...c, amount: editAmount, info: editInfo } : c));
     } else if (isEditing.startsWith('group-')) {
@@ -901,8 +943,74 @@ export default function App() {
           >
             <Bookmark size={18} className="group-hover:scale-110 transition-transform" />
           </button>
+
+          <div className="w-px h-5 bg-white/10 mx-1" />
+
+          <button 
+            onClick={() => setShowCommandInput(true)}
+            className={`p-2.5 rounded-full transition-all active:scale-95 group ${showCommandInput ? 'bg-blue-500/30 text-blue-300 ring-1 ring-blue-500/50' : 'hover:bg-white/10 text-white/70'}`}
+            title="Command Palette"
+          >
+            <Terminal size={18} className="group-hover:scale-110 transition-transform" />
+          </button>
         </div>
       </div>
+
+      {/* Command Palette Modal */}
+      <AnimatePresence>
+        {showCommandInput && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowCommandInput(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              className="relative w-full max-w-md bg-neutral-900/80 backdrop-blur-2xl border border-white/10 rounded-3xl p-6 shadow-[0_32px_64px_rgba(0,0,0,0.5)] ring-1 ring-white/10"
+            >
+              <div className="flex items-center gap-3 mb-4 text-white/40">
+                <Terminal size={20} />
+                <span className="text-xs font-bold uppercase tracking-widest">Command Palette</span>
+              </div>
+              
+              <form onSubmit={handleCommand}>
+                <input 
+                  autoFocus
+                  type="text"
+                  value={command}
+                  onChange={(e) => setCommand(e.target.value)}
+                  placeholder="Type a command (e.g., /cal)..."
+                  className="w-full bg-white/5 border border-white/10 rounded-2xl p-4 text-white text-lg focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all"
+                />
+                <div className="mt-4 flex justify-between items-center text-[10px] text-white/30 uppercase font-bold">
+                  <span>Press Enter to execute</span>
+                  <div className="flex gap-2">
+                    <span className="bg-white/5 px-2 py-1 rounded border border-white/10">Esc to cancel</span>
+                  </div>
+                </div>
+              </form>
+
+              <div className="mt-6 pt-6 border-t border-white/5">
+                <p className="text-[10px] text-white/20 uppercase font-bold mb-3">Available Commands</p>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-white/10 transition-colors cursor-pointer group" onClick={() => setCommand('/cal')}>
+                    <div className="flex items-center gap-3">
+                      <Calculator size={16} className="text-violet-400" />
+                      <span className="text-sm text-white/70">/cal</span>
+                    </div>
+                    <span className="text-xs text-white/30">Add calculator block</span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Viewpoints Panel */}
       <AnimatePresence>
@@ -1193,7 +1301,20 @@ export default function App() {
                   </div>
                 )}
                 
-                {(isEditing.startsWith('node-') || isEditing.startsWith('group-')) && (
+                {nodes.find(n => n.id === isEditing)?.type === 'calculator' && (
+                  <div>
+                    <label className="text-white/50 text-[10px] uppercase font-bold mb-1 block">Math Formula</label>
+                    <input 
+                      type="text"
+                      value={editFormula}
+                      onChange={(e) => setEditFormula(e.target.value)}
+                      placeholder="e.g. 10 * 5 + 2"
+                      className="w-full bg-neutral-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
+                    />
+                  </div>
+                )}
+
+                {(isEditing.startsWith('node-') || isEditing.startsWith('group-')) && nodes.find(n => n.id === isEditing)?.type !== 'calculator' && (
                   <div>
                     <label className="text-white/50 text-[10px] uppercase font-bold mb-1 block">Balance</label>
                     <input 
@@ -1656,46 +1777,96 @@ export default function App() {
                 scaleY={isHovered ? 1.05 : 1}
               >
                 <Rect
-                  width={90}
-                  height={45}
-                  offsetX={45}
-                  offsetY={22.5}
-                  fill={node.color}
-                  cornerRadius={8}
-                  shadowBlur={isSelected || isHovered || oneTimeSourceId === node.id ? 20 : 5}
-                  shadowColor={oneTimeSourceId === node.id ? '#10b981' : node.color}
-                  shadowOpacity={isHovered || oneTimeSourceId === node.id ? 0.7 : 0.5}
-                  stroke={isSelected ? '#fff' : isConnecting || oneTimeSourceId === node.id ? '#3b82f6' : 'transparent'}
+                  width={node.type === 'calculator' ? 110 : 90}
+                  height={node.type === 'calculator' ? 55 : 45}
+                  offsetX={node.type === 'calculator' ? 55 : 45}
+                  offsetY={node.type === 'calculator' ? 27.5 : 22.5}
+                  fill={node.type === 'calculator' ? '#1a1a1a' : node.color}
+                  stroke={node.type === 'calculator' ? '#8b5cf6' : isSelected ? '#fff' : isConnecting || oneTimeSourceId === node.id ? '#3b82f6' : 'transparent'}
                   strokeWidth={2}
+                  cornerRadius={12}
+                  shadowBlur={isSelected || isHovered || oneTimeSourceId === node.id ? 25 : 10}
+                  shadowColor={node.type === 'calculator' ? '#8b5cf6' : node.color}
+                  shadowOpacity={node.type === 'calculator' ? 0.4 : 0.5}
+                  shadowOffset={{ x: 0, y: 4 }}
                 />
-                <Text
-                  text={node.text}
-                  width={90}
-                  offsetX={45}
-                  offsetY={7}
-                  align="center"
-                  fill="#fff"
-                  fontSize={10}
-                  fontStyle="bold"
-                  shadowColor="#000"
-                  shadowBlur={1}
-                  shadowOffset={{ x: 0.5, y: 0.5 }}
-                  shadowOpacity={1}
-                />
-                <Text
-                  text={`Bal: $${node.balance}`}
-                  width={90}
-                  offsetX={45}
-                  offsetY={-10}
-                  align="center"
-                  fill="#fff"
-                  fontSize={9}
-                  opacity={0.9}
-                  shadowColor="#000"
-                  shadowBlur={1}
-                  shadowOffset={{ x: 0.5, y: 0.5 }}
-                  shadowOpacity={1}
-                />
+                {node.type === 'calculator' && (
+                  <>
+                    <Rect
+                      width={110}
+                      height={3}
+                      offsetX={55}
+                      offsetY={27.5}
+                      fill="#8b5cf6"
+                      cornerRadius={[12, 12, 0, 0]}
+                    />
+                    <Text
+                      text="CALCULATOR"
+                      width={110}
+                      offsetX={55}
+                      offsetY={22}
+                      align="center"
+                      fill="#8b5cf6"
+                      fontSize={6.5}
+                      fontStyle="bold"
+                      letterSpacing={1}
+                    />
+                    <Text
+                      text={node.formula || ''}
+                      width={100}
+                      offsetX={50}
+                      offsetY={4}
+                      align="center"
+                      fill="rgba(255,255,255,0.7)"
+                      fontSize={10}
+                      fontStyle="bold"
+                    />
+                    <Text
+                      text={`= ${node.result}`}
+                      width={100}
+                      offsetX={50}
+                      offsetY={-12}
+                      align="center"
+                      fill="#10b981"
+                      fontSize={14}
+                      fontStyle="bold"
+                      shadowColor="rgba(16,185,129,0.3)"
+                      shadowBlur={10}
+                    />
+                  </>
+                )}
+                {node.type !== 'calculator' && (
+                  <>
+                    <Text
+                      text={node.text}
+                      width={90}
+                      offsetX={45}
+                      offsetY={7}
+                      align="center"
+                      fill="#fff"
+                      fontSize={10}
+                      fontStyle="bold"
+                      shadowColor="#000"
+                      shadowBlur={1}
+                      shadowOffset={{ x: 0.5, y: 0.5 }}
+                      shadowOpacity={1}
+                    />
+                    <Text
+                      text={`Bal: $${node.balance}`}
+                      width={90}
+                      offsetX={45}
+                      offsetY={-10}
+                      align="center"
+                      fill="#fff"
+                      fontSize={9}
+                      opacity={0.9}
+                      shadowColor="#000"
+                      shadowBlur={1}
+                      shadowOffset={{ x: 0.5, y: 0.5 }}
+                      shadowOpacity={1}
+                    />
+                  </>
+                )}
                 {node.groupId && (
                   <Circle
                     radius={2.5}
