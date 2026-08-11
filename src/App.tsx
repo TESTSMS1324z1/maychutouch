@@ -1777,10 +1777,10 @@ export default function App() {
                 scaleY={isHovered ? 1.05 : 1}
               >
                 <Rect
-                  width={node.type === 'calculator' ? 110 : 90}
-                  height={node.type === 'calculator' ? 55 : 45}
-                  offsetX={node.type === 'calculator' ? 55 : 45}
-                  offsetY={node.type === 'calculator' ? 27.5 : 22.5}
+                  width={node.type === 'calculator' ? 80 : 90}
+                  height={node.type === 'calculator' ? 40 : 45}
+                  offsetX={node.type === 'calculator' ? 40 : 45}
+                  offsetY={node.type === 'calculator' ? 20 : 22.5}
                   fill={node.type === 'calculator' ? '#1a1a1a' : node.color}
                   stroke={node.type === 'calculator' ? '#8b5cf6' : isSelected ? '#fff' : isConnecting || oneTimeSourceId === node.id ? '#3b82f6' : 'transparent'}
                   strokeWidth={2}
@@ -1793,39 +1793,29 @@ export default function App() {
                 {node.type === 'calculator' && (
                   <>
                     <Rect
-                      width={110}
+                      width={80}
                       height={3}
-                      offsetX={55}
-                      offsetY={27.5}
+                      offsetX={40}
+                      offsetY={20}
                       fill="#8b5cf6"
                       cornerRadius={[12, 12, 0, 0]}
                     />
                     <Text
-                      text="CALCULATOR"
-                      width={110}
-                      offsetX={55}
-                      offsetY={22}
+                      text="CALC"
+                      width={80}
+                      offsetX={40}
+                      offsetY={16}
                       align="center"
                       fill="#8b5cf6"
-                      fontSize={6.5}
+                      fontSize={6}
                       fontStyle="bold"
                       letterSpacing={1}
                     />
                     <Text
-                      text={node.formula || ''}
-                      width={100}
-                      offsetX={50}
-                      offsetY={4}
-                      align="center"
-                      fill="rgba(255,255,255,0.7)"
-                      fontSize={10}
-                      fontStyle="bold"
-                    />
-                    <Text
-                      text={`= ${node.result}`}
-                      width={100}
-                      offsetX={50}
-                      offsetY={-12}
+                      text={`${node.result}`}
+                      width={80}
+                      offsetX={40}
+                      offsetY={-2}
                       align="center"
                       fill="#10b981"
                       fontSize={14}
