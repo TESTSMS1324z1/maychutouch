@@ -1340,12 +1340,12 @@ export default function App() {
                     </div>
                     <div>
                       <label className="text-white/50 text-[10px] uppercase font-bold mb-1 block">Supplementary Info</label>
-                      <input 
-                        type="text"
+                      <textarea 
                         value={editInfo}
                         onChange={(e) => setEditInfo(e.target.value)}
                         placeholder="Add notes..."
-                        className="w-full bg-neutral-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        rows={3}
+                        className="w-full bg-neutral-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                       />
                     </div>
                   </div>
