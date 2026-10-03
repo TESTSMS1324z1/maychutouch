@@ -1,8 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Stage, Layer, Rect, Text, Group, Line, Circle, Arrow, Transformer } from 'react-konva';
 import { NodeData, ConnectionData, GroupData, ViewPoint, AutoPayment } from './types';
-import { Plus, Trash2, Link2, Box, Move, Type, Palette, X, Save, FolderOpen, RotateCcw, Play, Coins, ArrowRightLeft, Download, Upload, Maximize, ArrowRight, MousePointer2, BoxSelect, Bookmark, MapPin, Settings, Calculator, Terminal } from 'lucide-react';
-import { evaluate } from 'mathjs';
+import { Plus, Trash2, Link2, Box, Move, Type, Palette, X, Save, FolderOpen, RotateCcw, Play, Coins, ArrowRightLeft, Download, Upload, Maximize, ArrowRight, MousePointer2, BoxSelect, Bookmark, MapPin, Settings, Calculator, Terminal, Code, Sparkles } from 'lucide-react';
+import { runPythonSync, loadPyodideAsync } from './utils/pythonRunner';
 import { motion, AnimatePresence } from 'motion/react';
 import Konva from 'konva';
 
@@ -53,6 +53,7 @@ export default function App() {
   const [isConfirmingClear, setIsConfirmingClear] = useState(false);
   const [isEditingAutoPayments, setIsEditingAutoPayments] = useState<string | null>(null);
   const [alignmentGuides, setAlignmentGuides] = useState<{ x?: number, y?: number }[]>([]);
+  const [livePyResult, setLivePyResult] = useState<{ success: boolean; result: any; error?: string }>({ success: true, result: 0 });
 
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -62,6 +63,19 @@ export default function App() {
     startY: number;
     nodePositions: Map<string, { x: number, y: number }>;
   } | null>(null);
+
+  // Background load Pyodide if available
+  useEffect(() => {
+    loadPyodideAsync().catch(() => {});
+  }, []);
+
+  // Live Python calculation preview when editing formula
+  useEffect(() => {
+    if (isEditing && nodes.find(n => n.id === isEditing)?.type === 'calculator') {
+      const res = runPythonSync(editFormula);
+      setLivePyResult(res);
+    }
+  }, [editFormula, isEditing, nodes]);
 
   useEffect(() => {
     const handleResize = () => {
@@ -425,20 +439,23 @@ export default function App() {
     e.preventDefault();
     const cmd = command.trim().toLowerCase();
     
-    if (cmd === '/cal' || cmd === '/calculator') {
+    if (cmd === '/cal' || cmd === '/calculator' || cmd === '/python' || cmd === '/py') {
+      const defaultFormula = 'import math\nmath.sqrt(144) + 2**8';
+      const pyRes = runPythonSync(defaultFormula);
+      const resVal = pyRes.success ? pyRes.result : 268;
       const newNode: NodeData = {
         id: `node-${Date.now()}`,
         type: 'calculator',
         x: Math.random() * 500,
         y: Math.random() * 500,
-        text: 'Calculator',
-        formula: '1 + 1',
-        result: 2,
+        text: 'Python Calc',
+        formula: defaultFormula,
+        result: resVal,
         color: '#8b5cf6',
-        balance: 0
+        balance: typeof resVal === 'number' ? resVal : 0
       };
       setNodes([...nodes, newNode]);
-      triggerToast('Calculator block added');
+      triggerToast('Python Calculator block added');
     } else {
       triggerToast('Unknown command');
     }
@@ -733,13 +750,19 @@ export default function App() {
         if (n.id === isEditing) {
           let updatedNode = { ...n, text: editText, balance: editBalance };
           if (n.type === 'calculator') {
-            try {
-              const result = evaluate(editFormula);
-              updatedNode = { ...updatedNode, formula: editFormula, result: typeof result === 'number' ? result : result.toString() };
-            } catch (err) {
-              triggerToast('Invalid formula');
+            const pyRes = runPythonSync(editFormula);
+            if (!pyRes.success) {
+              triggerToast(`Python Error: ${pyRes.error || 'Syntax error'}`);
               return n;
             }
+            const resVal = pyRes.result;
+            const numericBal = typeof resVal === 'number' && !isNaN(resVal) ? resVal : (Number(resVal) || 0);
+            updatedNode = {
+              ...updatedNode,
+              formula: editFormula,
+              result: resVal,
+              balance: numericBal,
+            };
           }
           return updatedNode;
         }
@@ -1002,8 +1025,9 @@ export default function App() {
                     <div className="flex items-center gap-3">
                       <Calculator size={16} className="text-violet-400" />
                       <span className="text-sm text-white/70">/cal</span>
+                      <span className="text-[10px] text-violet-400/60 font-mono">/python</span>
                     </div>
-                    <span className="text-xs text-white/30">Add calculator block</span>
+                    <span className="text-xs text-white/40">Add Python math calculation block</span>
                   </div>
                 </div>
               </div>
@@ -1273,93 +1297,197 @@ export default function App() {
 
       {/* Editing Overlay */}
       <AnimatePresence>
-        {isEditing && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          >
-            <div className="bg-neutral-800 p-6 rounded-2xl border border-white/10 w-80 shadow-2xl">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-white font-medium">Edit Label</h3>
-                <button onClick={() => setIsEditing(null)} className="text-white/50 hover:text-white">
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="space-y-4">
-                {!isEditing.startsWith('conn-') && (
-                  <div>
-                    <label className="text-white/50 text-[10px] uppercase font-bold mb-1 block">Label</label>
-                    <input 
-                      autoFocus
-                      type="text"
-                      value={editText}
-                      onChange={(e) => setEditText(e.target.value)}
-                      className="w-full bg-neutral-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                )}
-                
-                {nodes.find(n => n.id === isEditing)?.type === 'calculator' && (
-                  <div>
-                    <label className="text-white/50 text-[10px] uppercase font-bold mb-1 block">Math Formula</label>
-                    <input 
-                      type="text"
-                      value={editFormula}
-                      onChange={(e) => setEditFormula(e.target.value)}
-                      placeholder="e.g. 10 * 5 + 2"
-                      className="w-full bg-neutral-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-violet-500"
-                    />
-                  </div>
-                )}
+        {isEditing && (() => {
+          const isCalc = nodes.find(n => n.id === isEditing)?.type === 'calculator';
 
-                {(isEditing.startsWith('node-') || isEditing.startsWith('group-')) && nodes.find(n => n.id === isEditing)?.type !== 'calculator' && (
-                  <div>
-                    <label className="text-white/50 text-[10px] uppercase font-bold mb-1 block">Balance</label>
-                    <input 
-                      type="number"
-                      value={editBalance}
-                      onChange={(e) => setEditBalance(Number(e.target.value))}
-                      className="w-full bg-neutral-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    />
-                  </div>
-                )}
+          if (isCalc) {
+            const mathSnippets = [
+              { label: 'math.sqrt()', code: 'import math\nmath.sqrt(144)' },
+              { label: 'math.pi * r**2', code: 'import math\nr = 5\nround(math.pi * r**2, 2)' },
+              { label: '2 ** 10', code: '2 ** 10' },
+              { label: 'math.factorial(n)', code: 'import math\nmath.factorial(6)' },
+              { label: 'math.gcd(a, b)', code: 'import math\nmath.gcd(48, 18)' },
+              { label: 'math.comb(n, k)', code: 'import math\nmath.comb(10, 3)' },
+              { label: 'math.sin(rad)', code: 'import math\nround(math.sin(math.pi / 2), 4)' },
+              { label: 'sum(range)', code: 'sum([i**2 for i in range(1, 6)])' },
+              { label: 'def func', code: 'def compound(p, r, t):\n    return p * (1 + r)**t\nround(compound(1000, 0.05, 3), 2)' },
+            ];
 
-                {isEditing.startsWith('conn-') && (
+            return (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+              >
+                <div className="bg-neutral-900 p-6 rounded-3xl border border-violet-500/20 w-[520px] max-w-[95vw] shadow-[0_32px_64px_rgba(0,0,0,0.6)]">
+                  <div className="flex justify-between items-center mb-4 pb-3 border-b border-white/5">
+                    <div className="flex items-center gap-2.5">
+                      <div className="p-2 rounded-xl bg-violet-500/20 text-violet-400 border border-violet-500/30">
+                        <Terminal size={18} />
+                      </div>
+                      <div>
+                        <h3 className="text-white font-bold text-sm flex items-center gap-2">
+                          Python Calculation Block
+                          <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                            Python 3 Math
+                          </span>
+                        </h3>
+                        <p className="text-[11px] text-white/40">Full math module, operators, loops & functions supported</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setIsEditing(null)} className="text-white/50 hover:text-white p-1 rounded-lg hover:bg-white/5 transition-colors">
+                      <X size={20} />
+                    </button>
+                  </div>
+
                   <div className="space-y-4">
                     <div>
-                      <label className="text-white/50 text-[10px] uppercase font-bold mb-1 block">Payment Amount</label>
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="text-white/50 text-[10px] uppercase font-bold tracking-wider">Python Math Code</label>
+                        <span className="text-[10px] text-violet-400 font-mono">math.*, ** power, // int div, def, loops</span>
+                      </div>
+                      <textarea 
+                        autoFocus
+                        rows={6}
+                        value={editFormula}
+                        onChange={(e) => setEditFormula(e.target.value)}
+                        placeholder={`# Enter Python math code, e.g.:\nimport math\nr = 10\narea = math.pi * r**2\nround(area, 2)`}
+                        className="w-full bg-neutral-950 font-mono text-xs leading-relaxed border border-violet-500/30 rounded-xl p-3.5 text-violet-100 focus:outline-none focus:ring-2 focus:ring-violet-500 resize-y shadow-inner"
+                      />
+                    </div>
+
+                    {/* Quick Snippets */}
+                    <div>
+                      <p className="text-[10px] text-white/30 uppercase font-bold mb-1.5">Quick Math Snippets</p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {mathSnippets.map((snip, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => setEditFormula(snip.code)}
+                            className="text-[10px] font-mono px-2 py-1 rounded-lg bg-white/5 hover:bg-violet-500/20 text-white/70 hover:text-violet-300 border border-white/5 hover:border-violet-500/30 transition-colors"
+                          >
+                            {snip.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Live Preview Box */}
+                    <div className="p-3 rounded-2xl bg-neutral-950/80 border border-white/10 flex items-center justify-between">
+                      <div className="flex items-center gap-2.5 overflow-hidden">
+                        <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${livePyResult.success ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]' : 'bg-rose-400 shadow-[0_0_8px_rgba(244,63,94,0.6)]'}`} />
+                        <span className="text-[10px] uppercase font-bold text-white/40 shrink-0">Live Result:</span>
+                        {livePyResult.success ? (
+                          <span className="font-mono text-sm font-bold text-emerald-400 bg-emerald-500/10 px-2.5 py-0.5 rounded-md border border-emerald-500/20 truncate">
+                            {String(livePyResult.result)}
+                          </span>
+                        ) : (
+                          <span className="font-mono text-xs text-rose-400 bg-rose-500/10 px-2 py-0.5 rounded border border-rose-500/20 truncate" title={livePyResult.error}>
+                            {livePyResult.error}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-[10px] text-white/30 font-mono shrink-0 ml-2">Exec: 0ms</span>
+                    </div>
+
+                    <div className="flex gap-2 pt-1">
+                      <button 
+                        onClick={() => setIsEditing(null)}
+                        className="px-4 py-2.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/5 transition-colors text-sm font-medium"
+                      >
+                        Cancel
+                      </button>
+                      <button 
+                        onClick={saveEdit}
+                        className="flex-1 bg-violet-600 hover:bg-violet-500 text-white font-medium py-2.5 rounded-xl transition-colors shadow-lg shadow-violet-900/30 flex items-center justify-center gap-2 text-sm"
+                      >
+                        <Calculator size={16} />
+                        <span>Save & Update Calculation</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          }
+
+          return (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            >
+              <div className="bg-neutral-800 p-6 rounded-2xl border border-white/10 w-80 shadow-2xl">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-white font-medium">Edit Label</h3>
+                  <button onClick={() => setIsEditing(null)} className="text-white/50 hover:text-white">
+                    <X size={20} />
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  {!isEditing.startsWith('conn-') && (
+                    <div>
+                      <label className="text-white/50 text-[10px] uppercase font-bold mb-1 block">Label</label>
                       <input 
                         autoFocus
-                        type="number"
-                        value={editAmount}
-                        onChange={(e) => setEditAmount(Number(e.target.value))}
+                        type="text"
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
                         className="w-full bg-neutral-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
+                  )}
+
+                  {(isEditing.startsWith('node-') || isEditing.startsWith('group-')) && (
                     <div>
-                      <label className="text-white/50 text-[10px] uppercase font-bold mb-1 block">Supplementary Info</label>
-                      <textarea 
-                        value={editInfo}
-                        onChange={(e) => setEditInfo(e.target.value)}
-                        placeholder="Add notes..."
-                        rows={3}
-                        className="w-full bg-neutral-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                      <label className="text-white/50 text-[10px] uppercase font-bold mb-1 block">Balance</label>
+                      <input 
+                        type="number"
+                        value={editBalance}
+                        onChange={(e) => setEditBalance(Number(e.target.value))}
+                        className="w-full bg-neutral-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />
                     </div>
-                  </div>
-                )}
+                  )}
+
+                  {isEditing.startsWith('conn-') && (
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-white/50 text-[10px] uppercase font-bold mb-1 block">Payment Amount</label>
+                        <input 
+                          autoFocus
+                          type="number"
+                          value={editAmount}
+                          onChange={(e) => setEditAmount(Number(e.target.value))}
+                          className="w-full bg-neutral-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-white/50 text-[10px] uppercase font-bold mb-1 block">Supplementary Info</label>
+                        <textarea 
+                          value={editInfo}
+                          onChange={(e) => setEditInfo(e.target.value)}
+                          placeholder="Add notes..."
+                          rows={3}
+                          className="w-full bg-neutral-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <button 
+                  onClick={saveEdit}
+                  className="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-xl transition-colors"
+                >
+                  Save Changes
+                </button>
               </div>
-              <button 
-                onClick={saveEdit}
-                className="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2 rounded-xl transition-colors"
-              >
-                Save Changes
-              </button>
-            </div>
-          </motion.div>
-        )}
+            </motion.div>
+          );
+        })()}
 
         {isEditingOneTime && (
           <motion.div 
@@ -1801,24 +1929,24 @@ export default function App() {
                       cornerRadius={[12, 12, 0, 0]}
                     />
                     <Text
-                      text="CALC"
+                      text="PY CALC"
                       width={80}
                       offsetX={40}
                       offsetY={16}
                       align="center"
-                      fill="#8b5cf6"
-                      fontSize={6}
+                      fill="#a78bfa"
+                      fontSize={6.5}
                       fontStyle="bold"
                       letterSpacing={1}
                     />
                     <Text
-                      text={`${node.result}`}
-                      width={80}
-                      offsetX={40}
+                      text={`${node.result ?? 0}`}
+                      width={76}
+                      offsetX={38}
                       offsetY={-2}
                       align="center"
                       fill="#10b981"
-                      fontSize={14}
+                      fontSize={String(node.result ?? 0).length > 9 ? 9 : String(node.result ?? 0).length > 6 ? 11 : 13}
                       fontStyle="bold"
                       shadowColor="rgba(16,185,129,0.3)"
                       shadowBlur={10}
