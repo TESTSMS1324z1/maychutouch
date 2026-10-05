@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Stage, Layer, Rect, Text, Group, Line, Circle, Arrow, Transformer } from 'react-konva';
 import { NodeData, ConnectionData, GroupData, ViewPoint, AutoPayment } from './types';
-import { Plus, Trash2, Link2, Box, Move, Type, Palette, X, Save, FolderOpen, RotateCcw, Play, Coins, ArrowRightLeft, Download, Upload, Maximize, ArrowRight, MousePointer2, BoxSelect, Bookmark, MapPin, Settings, Calculator, Terminal, Code, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Link2, Box, Move, Type, Palette, X, Save, FolderOpen, RotateCcw, Play, Coins, ArrowRightLeft, Download, Upload, Maximize, ArrowRight, MousePointer2, BoxSelect, Bookmark, MapPin, Settings, Calculator, Terminal, Code, Sparkles, Sun, Moon } from 'lucide-react';
 import { runPythonSync, loadPyodideAsync } from './utils/pythonRunner';
 import { motion, AnimatePresence } from 'motion/react';
 import Konva from 'konva';
@@ -54,6 +54,14 @@ export default function App() {
   const [isEditingAutoPayments, setIsEditingAutoPayments] = useState<string | null>(null);
   const [alignmentGuides, setAlignmentGuides] = useState<{ x?: number, y?: number }[]>([]);
   const [livePyResult, setLivePyResult] = useState<{ success: boolean; result: any; error?: string }>({ success: true, result: 0 });
+  const [isWhiteBg, setIsWhiteBg] = useState(() => {
+    const saved = localStorage.getItem('mindmap_bg_white');
+    return saved !== null ? saved === 'true' : true;
+  });
+
+  useEffect(() => {
+    localStorage.setItem('mindmap_bg_white', String(isWhiteBg));
+  }, [isWhiteBg]);
 
   const stageRef = useRef<Konva.Stage>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -781,7 +789,7 @@ export default function App() {
   };
 
   return (
-    <div ref={containerRef} className="relative w-full h-screen bg-neutral-900 overflow-hidden">
+    <div ref={containerRef} className={`relative w-full h-screen ${isWhiteBg ? 'bg-white' : 'bg-neutral-900'} overflow-hidden transition-colors duration-300`}>
       {/* Toolbar */}
       <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10 p-[1.5px] rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.4)] overflow-hidden">
         {/* Rainbow Layer */}
@@ -794,7 +802,7 @@ export default function App() {
         {/* Base Border Layer (visible when rainbow is off) */}
         <div className={`absolute inset-0 bg-white/10 transition-opacity duration-700 ${showRainbow ? "opacity-0" : "opacity-100"}`} />
 
-        <div className="relative flex items-center gap-1.5 p-1.5 bg-neutral-900/20 backdrop-blur-2xl backdrop-saturate-150 backdrop-brightness-125 rounded-full ring-1 ring-white/20 ring-inset">
+        <div className={`relative flex items-center gap-1.5 p-1.5 ${isWhiteBg ? 'bg-neutral-900/80' : 'bg-neutral-900/20'} backdrop-blur-2xl backdrop-saturate-150 backdrop-brightness-125 rounded-full ring-1 ring-white/20 ring-inset transition-colors duration-300`}>
           <button 
             onClick={nextTurn}
             className="p-2.5 hover:bg-emerald-500/20 text-emerald-400 rounded-full transition-all active:scale-95 group"
@@ -975,6 +983,25 @@ export default function App() {
             title="Command Palette"
           >
             <Terminal size={18} className="group-hover:scale-110 transition-transform" />
+          </button>
+
+          <div className="w-px h-5 bg-white/10 mx-1" />
+
+          <button 
+            onClick={() => {
+              const nextState = !isWhiteBg;
+              setIsWhiteBg(nextState);
+              triggerToast(nextState ? 'Background set to white' : 'Background set to black');
+            }}
+            className={`p-2.5 rounded-full transition-all active:scale-95 group ${isWhiteBg ? 'bg-amber-500/30 text-amber-300 ring-1 ring-amber-500/50' : 'hover:bg-white/10 text-white/70'}`}
+            title={isWhiteBg ? "Switch to Black Background" : "Switch to White Background"}
+            aria-label="Toggle Background"
+          >
+            {isWhiteBg ? (
+              <Sun size={18} className="group-hover:scale-110 transition-transform text-amber-400" />
+            ) : (
+              <Moon size={18} className="group-hover:scale-110 transition-transform" />
+            )}
           </button>
         </div>
       </div>
@@ -2130,7 +2157,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Instructions */}
-      <div className="absolute bottom-6 left-6 text-white/40 text-xs font-mono space-y-1">
+      <div className={`absolute bottom-6 left-6 ${isWhiteBg ? 'text-neutral-500' : 'text-white/40'} text-xs font-mono space-y-1 transition-colors duration-300 pointer-events-none select-none`}>
         <p>• Drag to move blocks</p>
         <p>• Scroll to zoom, Drag canvas to pan</p>
         <p>• Double-click to edit text</p>
