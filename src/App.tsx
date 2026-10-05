@@ -1516,41 +1516,73 @@ export default function App() {
           );
         })()}
 
-        {isEditingOneTime && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-          >
-            <div className="bg-neutral-800 p-6 rounded-2xl border border-white/10 w-80 shadow-2xl">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-white font-medium">One-time Payment</h3>
-                <button onClick={() => setIsEditingOneTime(null)} className="text-white/50 hover:text-white">
-                  <X size={20} />
-                </button>
-              </div>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-white/50 text-[10px] uppercase font-bold mb-1 block">Amount</label>
-                  <input 
-                    autoFocus
-                    type="number"
-                    value={oneTimeAmount}
-                    onChange={(e) => setOneTimeAmount(Number(e.target.value))}
-                    className="w-full bg-neutral-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
+        {isEditingOneTime && (() => {
+          const fromNode = nodes.find(n => n.id === isEditingOneTime.fromId);
+          const fromGroup = groups.find(g => g.id === isEditingOneTime.fromId);
+          const sourceBalance = fromNode ? fromNode.balance : (fromGroup ? (fromGroup.balance || 0) : 0);
+
+          return (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+            >
+              <div className="bg-neutral-800 p-6 rounded-2xl border border-white/10 w-80 shadow-2xl">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-white font-medium">One-time Payment</h3>
+                  <button onClick={() => setIsEditingOneTime(null)} className="text-white/50 hover:text-white">
+                    <X size={20} />
+                  </button>
                 </div>
-                <button 
-                  onClick={() => executeOneTimePayment(isEditingOneTime.fromId, isEditingOneTime.toId, oneTimeAmount)}
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-emerald-900/20"
-                >
-                  Confirm Payment
-                </button>
+                <div className="space-y-4">
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <label className="text-white/50 text-[10px] uppercase font-bold block">Amount</label>
+                      <button
+                        type="button"
+                        onClick={() => setOneTimeAmount(sourceBalance)}
+                        className="text-[10px] text-emerald-400 hover:text-emerald-300 font-medium transition-colors cursor-pointer"
+                        title="Click to fill available balance"
+                      >
+                        Available: ${sourceBalance}
+                      </button>
+                    </div>
+                    <input 
+                      autoFocus
+                      type="number"
+                      value={oneTimeAmount}
+                      onChange={(e) => setOneTimeAmount(Number(e.target.value))}
+                      className="w-full bg-neutral-900 border border-white/10 rounded-xl p-3 text-white focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                    />
+                  </div>
+                  <div className="flex gap-2">
+                    <button 
+                      onClick={() => executeOneTimePayment(isEditingOneTime.fromId, isEditingOneTime.toId, oneTimeAmount)}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl transition-colors shadow-lg shadow-emerald-900/20 text-sm"
+                    >
+                      Confirm Payment
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => {
+                        if (sourceBalance <= 0) {
+                          triggerToast('Source has no balance to transfer.');
+                          return;
+                        }
+                        executeOneTimePayment(isEditingOneTime.fromId, isEditingOneTime.toId, sourceBalance);
+                      }}
+                      className="px-4 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 font-bold py-3 rounded-xl transition-colors text-sm whitespace-nowrap active:scale-95"
+                      title={`Transfer all $${sourceBalance}`}
+                    >
+                      Pay All
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </motion.div>
-        )}
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* Canvas */}
