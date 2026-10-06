@@ -25,7 +25,10 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
   const [oneTimeSourceId, setOneTimeSourceId] = useState<string | null>(null);
-  const [stageSize, setStageSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const [stageSize, setStageSize] = useState({ 
+    width: typeof window !== 'undefined' && window.innerWidth > 0 ? window.innerWidth : 1200, 
+    height: typeof window !== 'undefined' && window.innerHeight > 0 ? window.innerHeight : 800 
+  });
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [isEditingOneTime, setIsEditingOneTime] = useState<{ fromId: string, toId: string } | null>(null);
   const [editText, setEditText] = useState('');
@@ -88,10 +91,14 @@ export default function App() {
   useEffect(() => {
     const handleResize = () => {
       if (containerRef.current) {
-        setStageSize({
-          width: containerRef.current.offsetWidth,
-          height: containerRef.current.offsetHeight,
-        });
+        const w = containerRef.current.offsetWidth || (typeof window !== 'undefined' ? window.innerWidth : 1200);
+        const h = containerRef.current.offsetHeight || (typeof window !== 'undefined' ? window.innerHeight : 800);
+        if (w > 0 && h > 0) {
+          setStageSize({
+            width: w,
+            height: h,
+          });
+        }
       }
     };
     window.addEventListener('resize', handleResize);
@@ -506,7 +513,6 @@ export default function App() {
     const newGuides: { x?: number, y?: number }[] = [];
 
     if (id.startsWith('node-')) {
-      const currentNode = nodes.find(n => n.id === id);
       // Find other nodes for snapping
       const otherNodes = nodes.filter(n => n.id !== id && !selectedNodeIds.includes(n.id));
       
@@ -791,7 +797,11 @@ export default function App() {
   return (
     <div ref={containerRef} className={`relative w-full h-screen ${isWhiteBg ? 'bg-white' : 'bg-neutral-900'} overflow-hidden transition-colors duration-300`}>
       {/* Toolbar */}
-      <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10 p-[1.5px] rounded-full shadow-[0_8px_32px_rgba(0,0,0,0.4)] overflow-hidden">
+      <div className={`absolute top-6 left-1/2 -translate-x-1/2 z-10 p-[1.5px] rounded-full ${
+        isWhiteBg 
+          ? 'shadow-[0_10px_35px_rgba(0,0,0,0.08),0_2px_8px_rgba(0,0,0,0.04)]' 
+          : 'shadow-[0_8px_32px_rgba(0,0,0,0.4)]'
+      } overflow-hidden transition-all duration-300`}>
         {/* Rainbow Layer */}
         <div 
           className={`absolute inset-0 bg-[linear-gradient(90deg,#ffadad,#ffd6a5,#fdffb6,#caffbf,#9bf6ff,#a0c4ff,#bdb2ff,#ffc6ff,#ffadad)] animate-rainbow-flow transition-opacity duration-700 ${
@@ -800,21 +810,25 @@ export default function App() {
         />
         
         {/* Base Border Layer (visible when rainbow is off) */}
-        <div className={`absolute inset-0 bg-white/10 transition-opacity duration-700 ${showRainbow ? "opacity-0" : "opacity-100"}`} />
+        <div className={`absolute inset-0 ${isWhiteBg ? 'bg-black/[0.08]' : 'bg-white/10'} transition-opacity duration-700 ${showRainbow ? "opacity-0" : "opacity-100"}`} />
 
-        <div className={`relative flex items-center gap-1.5 p-1.5 ${isWhiteBg ? 'bg-neutral-900/80' : 'bg-neutral-900/20'} backdrop-blur-2xl backdrop-saturate-150 backdrop-brightness-125 rounded-full ring-1 ring-white/20 ring-inset transition-colors duration-300`}>
+        <div className={`relative flex items-center gap-1.5 p-1.5 ${
+          isWhiteBg 
+            ? 'bg-white/75 backdrop-blur-2xl backdrop-saturate-180 ring-1 ring-white/90 ring-inset shadow-[inset_0_1px_1px_rgba(255,255,255,0.95),inset_0_-1px_1px_rgba(0,0,0,0.04)]' 
+            : 'bg-neutral-900/20 backdrop-blur-2xl backdrop-saturate-150 backdrop-brightness-125 ring-1 ring-white/20 ring-inset'
+        } rounded-full transition-all duration-300`}>
           <button 
             onClick={nextTurn}
-            className="p-2.5 hover:bg-emerald-500/20 text-emerald-400 rounded-full transition-all active:scale-95 group"
+            className={`p-2.5 ${isWhiteBg ? 'hover:bg-emerald-500/15 text-emerald-600' : 'hover:bg-emerald-500/20 text-emerald-400'} rounded-full transition-all active:scale-95 group`}
             title="Next Turn"
           >
             <Play size={18} className="group-hover:scale-110 transition-transform" />
           </button>
 
-          <div className="w-px h-5 bg-white/10 mx-1" />
+          <div className={`w-px h-5 ${isWhiteBg ? 'bg-black/10' : 'bg-white/10'} mx-1`} />
           <button 
             onClick={addNode}
-            className="p-2.5 hover:bg-white/10 rounded-full transition-all active:scale-95 text-white/90 group"
+            className={`p-2.5 ${isWhiteBg ? 'hover:bg-black/5 text-neutral-800' : 'hover:bg-white/10 text-white/90'} rounded-full transition-all active:scale-95 group`}
             title="Add Block"
           >
             <Plus size={18} className="group-hover:scale-110 transition-transform" />
@@ -825,19 +839,25 @@ export default function App() {
               setIsSelectMode(!isSelectMode);
               setSelectedNodeIds([]);
             }}
-            className={`p-2.5 rounded-full transition-all active:scale-95 group ${isSelectMode ? 'bg-blue-500/30 text-blue-300 ring-1 ring-blue-500/50' : 'hover:bg-white/10 text-white/70'}`}
+            className={`p-2.5 rounded-full transition-all active:scale-95 group ${
+              isSelectMode 
+                ? (isWhiteBg ? 'bg-blue-500/15 text-blue-600 ring-1 ring-blue-500/30' : 'bg-blue-500/30 text-blue-300 ring-1 ring-blue-500/50') 
+                : (isWhiteBg ? 'hover:bg-black/5 text-neutral-600' : 'hover:bg-white/10 text-white/70')
+            }`}
             title={isSelectMode ? "Switch to Pan Mode" : "Switch to Select Mode"}
           >
             {isSelectMode ? <BoxSelect size={18} className="group-hover:scale-110 transition-transform" /> : <MousePointer2 size={18} className="group-hover:scale-110 transition-transform" />}
           </button>
           
-          <div className="w-px h-5 bg-white/10 mx-1" />
+          <div className={`w-px h-5 ${isWhiteBg ? 'bg-black/10' : 'bg-white/10'} mx-1`} />
           
           <button 
             onClick={() => selectedId && setConnectingFrom(selectedId)}
             disabled={!selectedId || !selectedId.startsWith('node-')}
             className={`p-2.5 rounded-full transition-all active:scale-95 group ${
-              connectingFrom ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' : 'hover:bg-white/10 text-white/70 disabled:opacity-20'
+              connectingFrom 
+                ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/20' 
+                : (isWhiteBg ? 'hover:bg-black/5 text-neutral-600 disabled:opacity-20' : 'hover:bg-white/10 text-white/70 disabled:opacity-20')
             }`}
             title="Connect Blocks"
           >
@@ -847,7 +867,7 @@ export default function App() {
           <button 
             onClick={createGroup}
             disabled={!selectedId || !selectedId.startsWith('node-')}
-            className="p-2.5 hover:bg-white/10 text-white/70 disabled:opacity-20 rounded-full transition-all active:scale-95 group"
+            className={`p-2.5 ${isWhiteBg ? 'hover:bg-black/5 text-neutral-600' : 'hover:bg-white/10 text-white/70'} disabled:opacity-20 rounded-full transition-all active:scale-95 group`}
             title="Create Group"
           >
             <Box size={18} className="group-hover:scale-110 transition-transform" />
@@ -856,17 +876,17 @@ export default function App() {
           <button 
             onClick={deleteSelected}
             disabled={!selectedId}
-            className="p-2.5 hover:bg-red-500/20 text-red-400 disabled:opacity-20 rounded-full transition-all active:scale-95 group"
+            className={`p-2.5 ${isWhiteBg ? 'hover:bg-red-500/15 text-red-500' : 'hover:bg-red-500/20 text-red-400'} disabled:opacity-20 rounded-full transition-all active:scale-95 group`}
             title="Delete"
           >
             <Trash2 size={18} className="group-hover:scale-110 transition-transform" />
           </button>
 
-          <div className="w-px h-5 bg-white/10 mx-1" />
+          <div className={`w-px h-5 ${isWhiteBg ? 'bg-black/10' : 'bg-white/10'} mx-1`} />
 
           <button 
             onClick={saveToLocal}
-            className="p-2.5 hover:bg-white/10 text-white/70 rounded-full transition-all active:scale-95 group"
+            className={`p-2.5 ${isWhiteBg ? 'hover:bg-black/5 text-neutral-600' : 'hover:bg-white/10 text-white/70'} rounded-full transition-all active:scale-95 group`}
             title="Save to Browser"
           >
             <Save size={18} className="group-hover:scale-110 transition-transform" />
@@ -874,7 +894,7 @@ export default function App() {
 
           <button 
             onClick={loadFromLocal}
-            className="p-2.5 hover:bg-white/10 text-white/70 rounded-full transition-all active:scale-95 group"
+            className={`p-2.5 ${isWhiteBg ? 'hover:bg-black/5 text-neutral-600' : 'hover:bg-white/10 text-white/70'} rounded-full transition-all active:scale-95 group`}
             title="Load from Browser"
           >
             <FolderOpen size={18} className="group-hover:scale-110 transition-transform" />
@@ -882,33 +902,33 @@ export default function App() {
 
           <button 
             onClick={clearCanvas}
-            className="p-2.5 hover:bg-red-500/20 text-red-400 rounded-full transition-all active:scale-95 group"
+            className={`p-2.5 ${isWhiteBg ? 'hover:bg-red-500/15 text-red-500' : 'hover:bg-red-500/20 text-red-400'} rounded-full transition-all active:scale-95 group`}
             title="Clear Canvas"
           >
             <RotateCcw size={18} className="group-hover:scale-110 transition-transform" />
           </button>
 
-          <div className="w-px h-5 bg-white/10 mx-1" />
+          <div className={`w-px h-5 ${isWhiteBg ? 'bg-black/10' : 'bg-white/10'} mx-1`} />
 
           <button 
             onClick={resetView}
-            className="p-2.5 hover:bg-white/10 text-white/70 rounded-full transition-all active:scale-95 group"
+            className={`p-2.5 ${isWhiteBg ? 'hover:bg-black/5 text-neutral-600' : 'hover:bg-white/10 text-white/70'} rounded-full transition-all active:scale-95 group`}
             title="Reset View"
           >
             <Maximize size={18} className="group-hover:scale-110 transition-transform" />
           </button>
 
-          <div className="w-px h-5 bg-white/10 mx-1" />
+          <div className={`w-px h-5 ${isWhiteBg ? 'bg-black/10' : 'bg-white/10'} mx-1`} />
 
           <button 
             onClick={exportToJson}
-            className="p-2.5 hover:bg-white/10 text-white/70 rounded-full transition-all active:scale-95 group"
+            className={`p-2.5 ${isWhiteBg ? 'hover:bg-black/5 text-neutral-600' : 'hover:bg-white/10 text-white/70'} rounded-full transition-all active:scale-95 group`}
             title="Export to JSON"
           >
             <Download size={18} className="group-hover:scale-110 transition-transform" />
           </button>
 
-          <label className="p-2.5 hover:bg-white/10 text-white/70 rounded-full transition-all active:scale-95 cursor-pointer group" title="Import from JSON">
+          <label className={`p-2.5 ${isWhiteBg ? 'hover:bg-black/5 text-neutral-600' : 'hover:bg-white/10 text-white/70'} rounded-full transition-all active:scale-95 cursor-pointer group`} title="Import from JSON">
             <Upload size={18} className="group-hover:scale-110 transition-transform" />
             <input 
               type="file" 
@@ -918,7 +938,7 @@ export default function App() {
             />
           </label>
 
-          <div className="w-px h-4 bg-white/10 mx-0.5" />
+          <div className={`w-px h-4 ${isWhiteBg ? 'bg-black/10' : 'bg-white/10'} mx-0.5`} />
 
           <div className="flex gap-1.5 px-1.5 items-center">
             {COLORS.map(color => (
@@ -932,15 +952,15 @@ export default function App() {
                     setGroups(groups.map(g => g.id === selectedId ? { ...g, color } : g));
                   }
                 }}
-                className="w-5 h-5 rounded-full border border-white/20 transition-all hover:scale-125 active:scale-90 shadow-sm"
+                className={`w-5 h-5 rounded-full border ${isWhiteBg ? 'border-black/10' : 'border-white/20'} transition-all hover:scale-125 active:scale-90 shadow-sm`}
                 style={{ backgroundColor: color }}
               />
             ))}
             
-            <div className="w-px h-5 bg-white/10 mx-1" />
+            <div className={`w-px h-5 ${isWhiteBg ? 'bg-black/10' : 'bg-white/10'} mx-1`} />
             
-            <label className="relative flex items-center justify-center w-7 h-7 rounded-full hover:bg-white/10 transition-all cursor-pointer group active:scale-90" title="Custom Color">
-              <Palette size={16} className="text-white/70 group-hover:text-white transition-colors" />
+            <label className={`relative flex items-center justify-center w-7 h-7 rounded-full ${isWhiteBg ? 'hover:bg-black/5' : 'hover:bg-white/10'} transition-all cursor-pointer group active:scale-90`} title="Custom Color">
+              <Palette size={16} className={`${isWhiteBg ? 'text-neutral-600 group-hover:text-neutral-900' : 'text-white/70 group-hover:text-white'} transition-colors`} />
               <input 
                 type="color"
                 className="absolute inset-0 opacity-0 cursor-pointer"
@@ -957,11 +977,11 @@ export default function App() {
             </label>
           </div>
 
-          <div className="w-px h-5 bg-white/10 mx-1" />
+          <div className={`w-px h-5 ${isWhiteBg ? 'bg-black/10' : 'bg-white/10'} mx-1`} />
 
           <button 
             onClick={saveCurrentView}
-            className="p-2.5 hover:bg-white/10 text-white/70 rounded-full transition-all active:scale-95 group"
+            className={`p-2.5 ${isWhiteBg ? 'hover:bg-black/5 text-neutral-600' : 'hover:bg-white/10 text-white/70'} rounded-full transition-all active:scale-95 group`}
             title="Save Current Viewpoint"
           >
             <MapPin size={18} className="group-hover:scale-110 transition-transform" />
@@ -969,23 +989,31 @@ export default function App() {
 
           <button 
             onClick={() => setShowViewPoints(!showViewPoints)}
-            className={`p-2.5 rounded-full transition-all active:scale-95 group ${showViewPoints ? 'bg-amber-500/30 text-amber-300 ring-1 ring-amber-500/50' : 'hover:bg-white/10 text-white/70'}`}
+            className={`p-2.5 rounded-full transition-all active:scale-95 group ${
+              showViewPoints 
+                ? (isWhiteBg ? 'bg-amber-500/20 text-amber-600 ring-1 ring-amber-500/40' : 'bg-amber-500/30 text-amber-300 ring-1 ring-amber-500/50') 
+                : (isWhiteBg ? 'hover:bg-black/5 text-neutral-600' : 'hover:bg-white/10 text-white/70')
+            }`}
             title="Viewpoints List"
           >
             <Bookmark size={18} className="group-hover:scale-110 transition-transform" />
           </button>
 
-          <div className="w-px h-5 bg-white/10 mx-1" />
+          <div className={`w-px h-5 ${isWhiteBg ? 'bg-black/10' : 'bg-white/10'} mx-1`} />
 
           <button 
             onClick={() => setShowCommandInput(true)}
-            className={`p-2.5 rounded-full transition-all active:scale-95 group ${showCommandInput ? 'bg-blue-500/30 text-blue-300 ring-1 ring-blue-500/50' : 'hover:bg-white/10 text-white/70'}`}
+            className={`p-2.5 rounded-full transition-all active:scale-95 group ${
+              showCommandInput 
+                ? (isWhiteBg ? 'bg-blue-500/20 text-blue-600 ring-1 ring-blue-500/40' : 'bg-blue-500/30 text-blue-300 ring-1 ring-blue-500/50') 
+                : (isWhiteBg ? 'hover:bg-black/5 text-neutral-600' : 'hover:bg-white/10 text-white/70')
+            }`}
             title="Command Palette"
           >
             <Terminal size={18} className="group-hover:scale-110 transition-transform" />
           </button>
 
-          <div className="w-px h-5 bg-white/10 mx-1" />
+          <div className={`w-px h-5 ${isWhiteBg ? 'bg-black/10' : 'bg-white/10'} mx-1`} />
 
           <button 
             onClick={() => {
@@ -993,12 +1021,16 @@ export default function App() {
               setIsWhiteBg(nextState);
               triggerToast(nextState ? 'Background set to white' : 'Background set to black');
             }}
-            className={`p-2.5 rounded-full transition-all active:scale-95 group ${isWhiteBg ? 'bg-amber-500/30 text-amber-300 ring-1 ring-amber-500/50' : 'hover:bg-white/10 text-white/70'}`}
+            className={`p-2.5 rounded-full transition-all active:scale-95 group ${
+              isWhiteBg 
+                ? 'bg-amber-500/15 text-amber-600 ring-1 ring-amber-500/30 hover:bg-amber-500/25' 
+                : 'hover:bg-white/10 text-white/70'
+            }`}
             title={isWhiteBg ? "Switch to Black Background" : "Switch to White Background"}
             aria-label="Toggle Background"
           >
             {isWhiteBg ? (
-              <Sun size={18} className="group-hover:scale-110 transition-transform text-amber-400" />
+              <Sun size={18} className="group-hover:scale-110 transition-transform text-amber-500" />
             ) : (
               <Moon size={18} className="group-hover:scale-110 transition-transform" />
             )}
@@ -1587,8 +1619,8 @@ export default function App() {
 
       {/* Canvas */}
       <Stage 
-        width={stageSize.width} 
-        height={stageSize.height}
+        width={Math.max(100, stageSize.width || 1200)} 
+        height={Math.max(100, stageSize.height || 800)}
         ref={stageRef}
         scaleX={stageScale}
         scaleY={stageScale}
@@ -1662,18 +1694,19 @@ export default function App() {
       >
         <Layer>
           {/* Selection Box */}
-          {selectionRect.visible && (
+          {selectionRect.visible && Math.abs(selectionRect.x2 - selectionRect.x1) > 1 && Math.abs(selectionRect.y2 - selectionRect.y1) > 1 && (
             <Rect
               x={Math.min(selectionRect.x1, selectionRect.x2)}
               y={Math.min(selectionRect.y1, selectionRect.y2)}
-              width={Math.abs(selectionRect.x2 - selectionRect.x1)}
-              height={Math.abs(selectionRect.y2 - selectionRect.y1)}
+              width={Math.max(1, Math.abs(selectionRect.x2 - selectionRect.x1))}
+              height={Math.max(1, Math.abs(selectionRect.y2 - selectionRect.y1))}
               fill="rgba(59, 130, 246, 0.1)"
               stroke="#3b82f6"
               strokeWidth={1}
               dash={[5, 5]}
             />
           )}
+
           {/* Connections & Amounts */}
           {connections.map((conn) => {
             const from = nodes.find(n => n.id === conn.fromId);
@@ -1741,8 +1774,8 @@ export default function App() {
                     offsetY={10}
                     fill="#1f2937"
                     cornerRadius={4}
-                    shadowBlur={5}
-                    shadowOpacity={0.2}
+                    shadowBlur={2}
+                    shadowOpacity={0.15}
                   />
                   <Text
                     text={`$${conn.amount}`}
@@ -1753,10 +1786,6 @@ export default function App() {
                     fill="#10b981"
                     fontSize={10}
                     fontStyle="bold"
-                    shadowColor="#000"
-                    shadowBlur={1}
-                    shadowOffset={{ x: 0.5, y: 0.5 }}
-                    shadowOpacity={1}
                   />
                   {conn.info && (
                     <Text
@@ -1768,10 +1797,6 @@ export default function App() {
                       fill="#94a3b8"
                       fontSize={8}
                       fontStyle="italic"
-                      shadowColor="#000"
-                      shadowBlur={1}
-                      shadowOffset={{ x: 0.5, y: 0.5 }}
-                      shadowOpacity={1}
                     />
                   )}
                 </Group>
@@ -1821,7 +1846,7 @@ export default function App() {
                   <Rect
                     width={group.width}
                     height={group.height}
-                    fill="#171717"
+                    fill={isWhiteBg ? '#f8fafc' : '#171717'}
                     cornerRadius={12}
                   />
                   <Rect
@@ -1831,14 +1856,14 @@ export default function App() {
                     width={group.width}
                     height={group.height}
                     fill={group.color}
-                    opacity={isHovered || isDragTarget ? 0.25 : 0.15}
-                    stroke={isSelected || isDragTarget ? '#fff' : group.color}
+                    opacity={isWhiteBg ? (isHovered || isDragTarget ? 0.22 : 0.1) : (isHovered || isDragTarget ? 0.25 : 0.15)}
+                    stroke={isSelected || isDragTarget ? (isWhiteBg ? '#2563eb' : '#fff') : group.color}
                     strokeWidth={isDragTarget ? 3 : 2}
                     cornerRadius={12}
                     dash={isDragTarget ? undefined : [5, 5]}
                     shadowBlur={isHovered || isDragTarget ? 15 : 0}
                     shadowColor={group.color}
-                    shadowOpacity={0.4}
+                    shadowOpacity={isWhiteBg ? 0.25 : 0.4}
                     onTransform={(e) => {
                       const node = e.target;
                       const scaleX = node.scaleX();
@@ -1867,14 +1892,10 @@ export default function App() {
                     y={10}
                     width={group.width}
                     align="center"
-                    fill="#fff"
+                    fill={isWhiteBg ? '#0f172a' : '#fff'}
                     fontSize={14}
                     fontStyle="bold"
-                    opacity={0.6}
-                    shadowColor="#000"
-                    shadowBlur={1}
-                    shadowOffset={{ x: 0.5, y: 0.5 }}
-                    shadowOpacity={1}
+                    opacity={isWhiteBg ? 0.85 : 0.6}
                   />
                   <Text
                     text={`Balance: $${group.balance || 0}`}
@@ -1882,13 +1903,9 @@ export default function App() {
                     y={30}
                     width={group.width}
                     align="center"
-                    fill="#fff"
+                    fill={isWhiteBg ? '#334155' : '#fff'}
                     fontSize={12}
-                    opacity={0.5}
-                    shadowColor="#000"
-                    shadowBlur={1}
-                    shadowOffset={{ x: 0.5, y: 0.5 }}
-                    shadowOpacity={1}
+                    opacity={isWhiteBg ? 0.8 : 0.5}
                   />
                 </Group>
                 {isSelected && (
@@ -1910,7 +1927,7 @@ export default function App() {
                         const stage = stageRef.current;
                         if (stage) {
                           const target = stage.findOne(`#${group.id}`);
-                          if (target) {
+                          if (target && node.nodes()[0] !== target) {
                             node.nodes([target]);
                           }
                         }
@@ -1972,10 +1989,10 @@ export default function App() {
                   stroke={node.type === 'calculator' ? '#8b5cf6' : isSelected ? '#fff' : isConnecting || oneTimeSourceId === node.id ? '#3b82f6' : 'transparent'}
                   strokeWidth={2}
                   cornerRadius={12}
-                  shadowBlur={isSelected || isHovered || oneTimeSourceId === node.id ? 25 : 10}
+                  shadowBlur={isSelected || isHovered || oneTimeSourceId === node.id ? 20 : 5}
                   shadowColor={node.type === 'calculator' ? '#8b5cf6' : node.color}
                   shadowOpacity={node.type === 'calculator' ? 0.4 : 0.5}
-                  shadowOffset={{ x: 0, y: 4 }}
+                  shadowOffset={{ x: 0, y: 3 }}
                 />
                 {node.type === 'calculator' && (
                   <>
@@ -2007,8 +2024,6 @@ export default function App() {
                       fill="#10b981"
                       fontSize={String(node.result ?? 0).length > 9 ? 9 : String(node.result ?? 0).length > 6 ? 11 : 13}
                       fontStyle="bold"
-                      shadowColor="rgba(16,185,129,0.3)"
-                      shadowBlur={10}
                     />
                   </>
                 )}
@@ -2023,10 +2038,6 @@ export default function App() {
                       fill="#fff"
                       fontSize={10}
                       fontStyle="bold"
-                      shadowColor="#000"
-                      shadowBlur={1}
-                      shadowOffset={{ x: 0.5, y: 0.5 }}
-                      shadowOpacity={1}
                     />
                     <Text
                       text={`Bal: $${node.balance}`}
@@ -2037,10 +2048,6 @@ export default function App() {
                       fill="#fff"
                       fontSize={9}
                       opacity={0.9}
-                      shadowColor="#000"
-                      shadowBlur={1}
-                      shadowOffset={{ x: 0.5, y: 0.5 }}
-                      shadowOpacity={1}
                     />
                   </>
                 )}
