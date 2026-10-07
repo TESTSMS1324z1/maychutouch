@@ -9,7 +9,7 @@ export interface AutoPayment {
 
 export interface NodeData {
   id: string;
-  type?: 'default' | 'calculator';
+  type?: 'default' | 'calculator' | 'centralBank';
   x: number;
   y: number;
   text: string;
@@ -19,6 +19,10 @@ export interface NodeData {
   autoPayments?: AutoPayment[];
   formula?: string;
   result?: number | string;
+  gold?: number;
+  moneySupply?: number;
+  inflationRate?: number;
+  exchangeRate?: number;
 }
 
 export interface ConnectionData {

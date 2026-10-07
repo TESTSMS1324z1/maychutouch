@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Stage, Layer, Rect, Text, Group, Line, Circle, Arrow, Transformer } from 'react-konva';
 import { NodeData, ConnectionData, GroupData, ViewPoint, AutoPayment } from './types';
-import { Plus, Trash2, Link2, Box, Move, Type, Palette, X, Save, FolderOpen, RotateCcw, Play, Coins, ArrowRightLeft, Download, Upload, Maximize, ArrowRight, MousePointer2, BoxSelect, Bookmark, MapPin, Settings, Calculator, Terminal, Code, Sparkles, Sun, Moon } from 'lucide-react';
+import { Plus, Trash2, Link2, Box, Move, Type, Palette, X, Save, FolderOpen, RotateCcw, Play, Coins, ArrowRightLeft, Download, Upload, Maximize, ArrowRight, MousePointer2, BoxSelect, Bookmark, MapPin, Settings, Calculator, Terminal, Code, Sparkles, Sun, Moon, Landmark, TrendingUp, Banknote } from 'lucide-react';
 import { runPythonSync, loadPyodideAsync } from './utils/pythonRunner';
 import { motion, AnimatePresence } from 'motion/react';
 import Konva from 'konva';
@@ -37,6 +37,16 @@ export default function App() {
   const [editAmount, setEditAmount] = useState(0);
   const [editInfo, setEditInfo] = useState('');
   const [oneTimeAmount, setOneTimeAmount] = useState(10);
+  // Central Bank state
+  const [editGold, setEditGold] = useState(1000);
+  const [editMoneySupply, setEditMoneySupply] = useState(1000000);
+  const [editInflationRate, setEditInflationRate] = useState(5);
+  const [isPrintingMoneyFrom, setIsPrintingMoneyFrom] = useState<{
+    bankId: string;
+    printAmount: number;
+    inflationRate: number;
+  } | null>(null);
+  const [directInjectTargetId, setDirectInjectTargetId] = useState<string>('');
   const [showToast, setShowToast] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ x: number, y: number, type: 'node' | 'connection' | 'stage', targetId: string | null } | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -105,6 +115,23 @@ export default function App() {
     handleResize();
     return () => window.removeEventListener('resize', handleResize);
   }, []);
+
+  // Global Escape key listener to cancel interactive money printing mode
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (isPrintingMoneyFrom) {
+          setIsPrintingMoneyFrom(null);
+          triggerToast('已取消印鈔模式');
+        }
+        if (showCommandInput) {
+          setShowCommandInput(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPrintingMoneyFrom, showCommandInput]);
 
   // Initial load from local storage
   useEffect(() => {
@@ -350,6 +377,77 @@ export default function App() {
     setSelectedId(newNode.id);
   };
 
+  const addCentralBankNode = () => {
+    const centerX = (stageSize.width / 2 - stagePos.x) / stageScale;
+    const centerY = (stageSize.height / 2 - stagePos.y) / stageScale;
+    const initialGold = 1000;
+    const initialMoney = 1000000;
+    const initialInflation = 5;
+    const initialRate = initialMoney / initialGold;
+
+    const newNode: NodeData = {
+      id: `node-${Date.now()}`,
+      type: 'centralBank',
+      x: centerX + (Math.random() - 0.5) * 60,
+      y: centerY + (Math.random() - 0.5) * 60,
+      text: 'Central Bank',
+      color: '#eab308',
+      balance: initialMoney,
+      gold: initialGold,
+      moneySupply: initialMoney,
+      inflationRate: initialInflation,
+      exchangeRate: initialRate,
+    };
+    setNodes(prev => [...prev, newNode]);
+    setSelectedId(newNode.id);
+    triggerToast('🏛️ 央行 Central Bank Block 已添加！');
+  };
+
+  const executePrintMoney = (bankId: string, targetId: string, amount: number) => {
+    const bank = nodes.find(n => n.id === bankId);
+    if (!bank) return;
+
+    const gold = bank.gold && bank.gold > 0 ? bank.gold : 1000;
+    const currentMoney = bank.moneySupply ?? 1000000;
+    const newMoneySupply = currentMoney + amount;
+    const newExchangeRate = newMoneySupply / gold;
+
+    let targetName = 'Target Block';
+
+    setNodes(prev => prev.map(n => {
+      if (n.id === bankId) {
+        return {
+          ...n,
+          moneySupply: newMoneySupply,
+          exchangeRate: newExchangeRate,
+          balance: n.balance + amount,
+        };
+      }
+      if (n.id === targetId) {
+        targetName = n.text;
+        return {
+          ...n,
+          balance: n.balance + amount,
+        };
+      }
+      return n;
+    }));
+
+    setGroups(prev => prev.map(g => {
+      if (g.id === targetId) {
+        targetName = g.title;
+        return {
+          ...g,
+          balance: (g.balance || 0) + amount,
+        };
+      }
+      return g;
+    }));
+
+    setIsPrintingMoneyFrom(null);
+    triggerToast(`🎉 印鈔成功！向「${targetName}」注入 $${amount.toLocaleString()}，新匯率：1 單位黃金 = $${newExchangeRate.toFixed(2)}`);
+  };
+
   const deleteSelected = () => {
     if (!selectedId) return;
 
@@ -471,8 +569,17 @@ export default function App() {
       };
       setNodes([...nodes, newNode]);
       triggerToast('Python Calculator block added');
+    } else if (
+      cmd === '/cb' || 
+      cmd === '/centralbank' || 
+      cmd === '/bank' || 
+      cmd === 'central bank' || 
+      cmd === '央行' || 
+      cmd === '/央行'
+    ) {
+      addCentralBankNode();
     } else {
-      triggerToast('Unknown command');
+      triggerToast('Unknown command. Try /cal or /cb');
     }
     
     setCommand('');
@@ -746,6 +853,9 @@ export default function App() {
       setEditText(node.text);
       setEditBalance(node.balance);
       setEditFormula(node.formula || '');
+      setEditGold(node.gold ?? 1000);
+      setEditMoneySupply(node.moneySupply ?? 1000000);
+      setEditInflationRate(node.inflationRate ?? 5);
     } else if (id.startsWith('conn-')) {
       const conn = target as ConnectionData;
       setEditAmount(conn.amount);
@@ -776,6 +886,18 @@ export default function App() {
               formula: editFormula,
               result: resVal,
               balance: numericBal,
+            };
+          } else if (n.type === 'centralBank') {
+            const gold = editGold > 0 ? editGold : 1000;
+            const money = editMoneySupply >= 0 ? editMoneySupply : 0;
+            const rate = gold > 0 ? (money / gold) : 0;
+            updatedNode = {
+              ...updatedNode,
+              gold,
+              moneySupply: money,
+              inflationRate: editInflationRate,
+              exchangeRate: rate,
+              balance: money,
             };
           }
           return updatedNode;
@@ -1038,6 +1160,35 @@ export default function App() {
         </div>
       </div>
 
+      {/* Interactive Money Printing Mode Floating Banner */}
+      <AnimatePresence>
+        {isPrintingMoneyFrom && (
+          <motion.div
+            initial={{ opacity: 0, y: -20, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -20, scale: 0.95 }}
+            className="absolute top-20 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-amber-500 via-amber-400 to-amber-500 text-neutral-950 font-bold text-sm rounded-full shadow-[0_12px_36px_rgba(245,158,11,0.5)] border border-amber-300 ring-2 ring-amber-300/50"
+          >
+            <Coins size={20} className="animate-spin text-neutral-900" />
+            <div className="flex items-center gap-2">
+              <span>央行印鈔中：</span>
+              <span className="bg-neutral-950/15 px-2 py-0.5 rounded-full font-mono">
+                請點擊畫布上任意目標 Block 注入 ${isPrintingMoneyFrom.printAmount.toLocaleString()}
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                setIsPrintingMoneyFrom(null);
+                triggerToast('已取消印鈔模式');
+              }}
+              className="ml-2 px-3 py-1 rounded-full bg-neutral-950/80 hover:bg-neutral-950 text-amber-300 text-xs font-medium transition-all hover:scale-105 active:scale-95 shadow-sm"
+            >
+              取消 (Esc)
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Command Palette Modal */}
       <AnimatePresence>
         {showCommandInput && (
@@ -1087,6 +1238,21 @@ export default function App() {
                       <span className="text-[10px] text-violet-400/60 font-mono">/python</span>
                     </div>
                     <span className="text-xs text-white/40">Add Python math calculation block</span>
+                  </div>
+
+                  <div 
+                    className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5 hover:bg-amber-500/10 hover:border-amber-500/30 transition-colors cursor-pointer group" 
+                    onClick={() => {
+                      addCentralBankNode();
+                      setShowCommandInput(false);
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <Landmark size={16} className="text-amber-400" />
+                      <span className="text-sm text-white/70 group-hover:text-amber-300">/cb</span>
+                      <span className="text-[10px] text-amber-400/60 font-mono">/centralbank, 央行</span>
+                    </div>
+                    <span className="text-xs text-white/40 group-hover:text-white/60">Add Central Bank block (Gold, Money, Exchange Rate & Money Printing)</span>
                   </div>
                 </div>
               </div>
@@ -1357,7 +1523,297 @@ export default function App() {
       {/* Editing Overlay */}
       <AnimatePresence>
         {isEditing && (() => {
-          const isCalc = nodes.find(n => n.id === isEditing)?.type === 'calculator';
+          const currentNode = nodes.find(n => n.id === isEditing);
+          const isCalc = currentNode?.type === 'calculator';
+          const isBank = currentNode?.type === 'centralBank';
+
+          if (isBank) {
+            const currentGold = editGold > 0 ? editGold : 1000;
+            const currentMoney = editMoneySupply >= 0 ? editMoneySupply : 1000000;
+            const currentExchangeRate = currentGold > 0 ? (currentMoney / currentGold) : 0;
+            const printAmount = Math.round(currentMoney * (editInflationRate / 100));
+            const projectedMoney = currentMoney + printAmount;
+            const projectedRate = currentGold > 0 ? (projectedMoney / currentGold) : 0;
+            const goldBacking = currentMoney > 0 ? (currentGold / currentMoney) : 0;
+
+            const candidateTargets = [
+              ...nodes.filter(n => n.id !== isEditing).map(n => ({ id: n.id, title: n.text, balance: n.balance, type: 'block' })),
+              ...groups.map(g => ({ id: g.id, title: g.title, balance: g.balance || 0, type: 'group' }))
+            ];
+
+            return (
+              <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+              >
+                <div className="bg-neutral-900 p-6 rounded-3xl border border-amber-500/30 w-[540px] max-w-[95vw] shadow-[0_32px_64px_rgba(0,0,0,0.7)] text-white">
+                  {/* Header */}
+                  <div className="flex justify-between items-center mb-5 pb-3.5 border-b border-white/10">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2.5 rounded-2xl bg-amber-500/20 text-amber-400 border border-amber-500/30 shadow-inner">
+                        <Landmark size={20} />
+                      </div>
+                      <div>
+                        <h3 className="text-white font-bold text-base flex items-center gap-2">
+                          中央銀行控制總署 (Central Bank)
+                          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                            金本位體系
+                          </span>
+                        </h3>
+                        <p className="text-xs text-white/50">自訂黃金儲備、貨幣發行總量、匯率核算與量化寬鬆印鈔</p>
+                      </div>
+                    </div>
+                    <button onClick={() => setIsEditing(null)} className="text-white/50 hover:text-white p-1.5 rounded-xl hover:bg-white/10 transition-colors">
+                      <X size={20} />
+                    </button>
+                  </div>
+
+                  <div className="space-y-4 max-h-[75vh] overflow-y-auto pr-1">
+                    {/* Bank Name */}
+                    <div>
+                      <label className="text-white/60 text-[10px] uppercase font-bold tracking-wider mb-1 block">央行名稱</label>
+                      <input 
+                        type="text"
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        placeholder="Central Bank / 聯邦儲備系統"
+                        className="w-full bg-neutral-950 border border-white/10 rounded-xl p-3 text-white text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
+                      />
+                    </div>
+
+                    {/* Gold & Money Inputs Side-by-Side */}
+                    <div className="grid grid-cols-2 gap-3.5">
+                      {/* Gold Reserves */}
+                      <div className="bg-amber-950/20 border border-amber-500/20 rounded-2xl p-3.5">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-amber-400 text-xs font-bold flex items-center gap-1.5">
+                            <Coins size={14} /> 黃金儲備 (Gold)
+                          </label>
+                          <span className="text-[10px] text-amber-400/60 font-mono">oz 盎司</span>
+                        </div>
+                        <input 
+                          type="number"
+                          min="1"
+                          value={editGold}
+                          onChange={(e) => setEditGold(Math.max(1, Number(e.target.value)))}
+                          className="w-full bg-neutral-950/90 border border-amber-500/30 rounded-xl p-2.5 text-amber-200 text-base font-bold font-mono focus:outline-none focus:ring-2 focus:ring-amber-500"
+                        />
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {[100, 500, 1000].map(delta => (
+                            <button
+                              key={delta}
+                              type="button"
+                              onClick={() => setEditGold(g => g + delta)}
+                              className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 transition-colors"
+                            >
+                              +{delta}
+                            </button>
+                          ))}
+                          <button
+                            type="button"
+                            onClick={() => setEditGold(g => g * 2)}
+                            className="text-[10px] px-2 py-0.5 rounded bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/20 transition-colors"
+                          >
+                            ×2
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Money Supply */}
+                      <div className="bg-emerald-950/20 border border-emerald-500/20 rounded-2xl p-3.5">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <label className="text-emerald-400 text-xs font-bold flex items-center gap-1.5">
+                            <Banknote size={14} /> 貨幣發行總量 (Money)
+                          </label>
+                          <span className="text-[10px] text-emerald-400/60 font-mono">USD $</span>
+                        </div>
+                        <input 
+                          type="number"
+                          min="0"
+                          value={editMoneySupply}
+                          onChange={(e) => setEditMoneySupply(Math.max(0, Number(e.target.value)))}
+                          className="w-full bg-neutral-950/90 border border-emerald-500/30 rounded-xl p-2.5 text-emerald-200 text-base font-bold font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                        />
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {[50000, 100000, 500000].map(delta => (
+                            <button
+                              key={delta}
+                              type="button"
+                              onClick={() => setEditMoneySupply(m => m + delta)}
+                              className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/20 transition-colors"
+                            >
+                              +${delta >= 1000000 ? `${delta/1000000}M` : `${delta/1000}k`}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Live Exchange Rate Card */}
+                    <div className="p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/10 via-neutral-950 to-emerald-500/10 border border-white/10 shadow-inner">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-[10px] uppercase font-bold text-white/50 flex items-center gap-1">
+                          <TrendingUp size={13} className="text-amber-400" /> 即時核算匯率公式：貨幣發行量 ÷ 黃金儲備
+                        </span>
+                        <span className="text-[10px] text-emerald-400 font-mono bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                          即時連動生效
+                        </span>
+                      </div>
+                      <div className="flex items-baseline justify-between">
+                        <div>
+                          <div className="text-2xl font-black text-amber-300 font-mono tracking-tight">
+                            1 單位黃金 = ${currentExchangeRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </div>
+                          <div className="text-[11px] text-white/50 mt-0.5">
+                            貨幣含金背書率：1 元 = {goldBacking.toFixed(6)} oz 黃金
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] uppercase font-bold text-white/40 block">儲備體系狀態</span>
+                          <span className={`text-xs font-bold ${currentExchangeRate <= 1500 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                            {currentExchangeRate <= 1500 ? '🟢 儲備充足/貨幣堅挺' : '🟡 貨幣擴張階段'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Inflation & Quantitative Easing (Money Printing) */}
+                    <div className="p-4 rounded-2xl bg-neutral-950 border border-amber-500/30 space-y-3">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-1.5">
+                          <Banknote size={16} className="text-amber-400" />
+                          <h4 className="text-sm font-bold text-amber-200">通脹率設定與量化寬鬆印鈔</h4>
+                        </div>
+                        <span className="text-sm font-mono font-bold text-amber-400 bg-amber-500/20 px-2.5 py-0.5 rounded-full border border-amber-500/30">
+                          通脹率: {editInflationRate}%
+                        </span>
+                      </div>
+
+                      {/* Slider and Preset Chips */}
+                      <div>
+                        <input 
+                          type="range"
+                          min="1"
+                          max="50"
+                          step="1"
+                          value={editInflationRate}
+                          onChange={(e) => setEditInflationRate(Number(e.target.value))}
+                          className="w-full accent-amber-500 cursor-pointer"
+                        />
+                        <div className="flex justify-between text-[10px] text-white/40 font-mono mt-1">
+                          <span>1% (保守)</span>
+                          <span>10% (常規)</span>
+                          <span>25% (大放水)</span>
+                          <span>50% (惡性通脹)</span>
+                        </div>
+                        <div className="flex gap-1.5 mt-2">
+                          {[2, 5, 10, 20].map(pct => (
+                            <button
+                              key={pct}
+                              type="button"
+                              onClick={() => setEditInflationRate(pct)}
+                              className={`text-[10px] px-2.5 py-1 rounded-lg border transition-colors ${
+                                editInflationRate === pct 
+                                  ? 'bg-amber-500 text-neutral-950 font-bold border-amber-400' 
+                                  : 'bg-white/5 hover:bg-white/10 text-white/70 border-white/10'
+                              }`}
+                            >
+                              {pct}% {pct === 2 ? '(溫和)' : pct === 5 ? '(標準)' : pct === 10 ? '(寬鬆)' : '(超發)'}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Print Impact Preview */}
+                      <div className="p-2.5 rounded-xl bg-white/5 border border-white/5 flex items-center justify-between text-xs">
+                        <div>
+                          <span className="text-white/50 block text-[10px] uppercase font-bold">預計印鈔注資規模</span>
+                          <span className="font-mono font-bold text-emerald-400 text-sm">+${printAmount.toLocaleString()}</span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-white/50 block text-[10px] uppercase font-bold">印鈔後新匯率 (貨幣貶值)</span>
+                          <span className="font-mono font-bold text-amber-300 text-sm">1 Au = ${projectedRate.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        </div>
+                      </div>
+
+                      {/* Money Printing Action Zone */}
+                      <div className="pt-2 space-y-2">
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              saveEdit();
+                              setIsPrintingMoneyFrom({
+                                bankId: isEditing,
+                                printAmount,
+                                inflationRate: editInflationRate,
+                              });
+                              triggerToast(`💵 已開啟印鈔模式！請點擊畫布上的任意目標 Block 注入 $${printAmount.toLocaleString()}`);
+                            }}
+                            className="flex-1 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-neutral-950 font-bold py-2.5 px-3 rounded-xl transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2 text-xs active:scale-95"
+                          >
+                            <Coins size={16} />
+                            <span>點擊畫布選取 Block 印鈔注入 (+${printAmount.toLocaleString()})</span>
+                          </button>
+                        </div>
+
+                        {/* Direct Inject Selector */}
+                        {candidateTargets.length > 0 && (
+                          <div className="flex items-center gap-2 pt-1 border-t border-white/5">
+                            <span className="text-[10px] text-white/50 uppercase font-bold shrink-0">或直接指定注入：</span>
+                            <select
+                              value={directInjectTargetId || (candidateTargets[0]?.id || '')}
+                              onChange={(e) => setDirectInjectTargetId(e.target.value)}
+                              className="flex-1 bg-neutral-900 border border-white/10 rounded-lg py-1.5 px-2.5 text-xs text-white focus:outline-none focus:ring-1 focus:ring-amber-500"
+                            >
+                              {candidateTargets.map(target => (
+                                <option key={target.id} value={target.id}>
+                                  {target.type === 'group' ? '📁 [群組] ' : '📦 '} {target.title} (目前: ${target.balance})
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const targetId = directInjectTargetId || candidateTargets[0]?.id;
+                                if (!targetId) return;
+                                saveEdit();
+                                executePrintMoney(isEditing, targetId, printAmount);
+                                setIsEditing(null);
+                              }}
+                              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-1.5 px-3 rounded-lg text-xs transition-colors shrink-0 flex items-center gap-1 active:scale-95"
+                            >
+                              <Banknote size={14} />
+                              <span>立即注入</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Bottom Save & Cancel */}
+                    <div className="flex gap-2 pt-2 border-t border-white/10">
+                      <button 
+                        onClick={() => setIsEditing(null)}
+                        className="px-4 py-2.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/5 transition-colors text-sm font-medium"
+                      >
+                        關閉
+                      </button>
+                      <button 
+                        onClick={saveEdit}
+                        className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-xl transition-colors shadow-lg shadow-blue-900/30 flex items-center justify-center gap-2 text-sm"
+                      >
+                        <Save size={16} />
+                        <span>保存央行資料設定</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            );
+          }
 
           if (isCalc) {
             const mathSnippets = [
@@ -1830,6 +2286,10 @@ export default function App() {
                     if (stage) stage.container().style.cursor = 'default';
                   }}
                   onClick={(e) => {
+                    if (isPrintingMoneyFrom) {
+                      executePrintMoney(isPrintingMoneyFrom.bankId, group.id, isPrintingMoneyFrom.printAmount);
+                      return;
+                    }
                     if (oneTimeSourceId) {
                       if (oneTimeSourceId !== group.id) {
                         setIsEditingOneTime({ fromId: oneTimeSourceId, toId: group.id });
@@ -1955,6 +2415,14 @@ export default function App() {
                 onDragMove={(e) => handleDragMove(node.id, e)}
                 onDragEnd={(e) => handleDragEnd(node.id, e)}
                 onClick={(e) => {
+                  if (isPrintingMoneyFrom) {
+                    if (node.id === isPrintingMoneyFrom.bankId) {
+                      triggerToast('請選擇受注入資金的目標 Block（不可為央行本身）');
+                      return;
+                    }
+                    executePrintMoney(isPrintingMoneyFrom.bankId, node.id, isPrintingMoneyFrom.printAmount);
+                    return;
+                  }
                   if (isSelectMode) {
                     if (selectedNodeIds.includes(node.id)) {
                       setSelectedNodeIds(prev => prev.filter(id => id !== node.id));
@@ -1970,7 +2438,7 @@ export default function App() {
                 onMouseEnter={(e) => {
                   setHoveredId(node.id);
                   const stage = e.target.getStage();
-                  if (stage) stage.container().style.cursor = 'pointer';
+                  if (stage) stage.container().style.cursor = isPrintingMoneyFrom ? 'crosshair' : 'pointer';
                 }}
                 onMouseLeave={(e) => {
                   setHoveredId(null);
@@ -1981,17 +2449,27 @@ export default function App() {
                 scaleY={isHovered ? 1.05 : 1}
               >
                 <Rect
-                  width={node.type === 'calculator' ? 80 : 90}
-                  height={node.type === 'calculator' ? 40 : 45}
-                  offsetX={node.type === 'calculator' ? 40 : 45}
-                  offsetY={node.type === 'calculator' ? 20 : 22.5}
-                  fill={node.type === 'calculator' ? '#1a1a1a' : node.color}
-                  stroke={node.type === 'calculator' ? '#8b5cf6' : isSelected ? '#fff' : isConnecting || oneTimeSourceId === node.id ? '#3b82f6' : 'transparent'}
+                  width={node.type === 'centralBank' ? 104 : node.type === 'calculator' ? 80 : 90}
+                  height={node.type === 'centralBank' ? 52 : node.type === 'calculator' ? 40 : 45}
+                  offsetX={node.type === 'centralBank' ? 52 : node.type === 'calculator' ? 40 : 45}
+                  offsetY={node.type === 'centralBank' ? 26 : node.type === 'calculator' ? 20 : 22.5}
+                  fill={node.type === 'centralBank' ? '#181404' : node.type === 'calculator' ? '#1a1a1a' : node.color}
+                  stroke={
+                    node.type === 'centralBank'
+                      ? (isSelected ? '#fff' : isPrintingMoneyFrom?.bankId === node.id ? '#facc15' : '#eab308')
+                      : node.type === 'calculator'
+                      ? '#8b5cf6'
+                      : isSelected
+                      ? '#fff'
+                      : isConnecting || oneTimeSourceId === node.id
+                      ? '#3b82f6'
+                      : 'transparent'
+                  }
                   strokeWidth={2}
                   cornerRadius={12}
-                  shadowBlur={isSelected || isHovered || oneTimeSourceId === node.id ? 20 : 5}
-                  shadowColor={node.type === 'calculator' ? '#8b5cf6' : node.color}
-                  shadowOpacity={node.type === 'calculator' ? 0.4 : 0.5}
+                  shadowBlur={isSelected || isHovered || oneTimeSourceId === node.id || isPrintingMoneyFrom?.bankId === node.id ? 20 : 5}
+                  shadowColor={node.type === 'centralBank' ? '#eab308' : node.type === 'calculator' ? '#8b5cf6' : node.color}
+                  shadowOpacity={node.type === 'centralBank' ? 0.6 : node.type === 'calculator' ? 0.4 : 0.5}
                   shadowOffset={{ x: 0, y: 3 }}
                 />
                 {node.type === 'calculator' && (
@@ -2027,7 +2505,56 @@ export default function App() {
                     />
                   </>
                 )}
-                {node.type !== 'calculator' && (
+                {node.type === 'centralBank' && (() => {
+                  const bankGold = (node.gold && node.gold > 0) ? node.gold : 1000;
+                  const bankMoney = node.moneySupply ?? (node.balance > 0 ? node.balance : 1000000);
+                  const bankRate = node.exchangeRate ?? (bankMoney / bankGold);
+
+                  return (
+                    <>
+                      <Rect
+                        width={104}
+                        height={3.5}
+                        offsetX={52}
+                        offsetY={26}
+                        fill="#eab308"
+                        cornerRadius={[12, 12, 0, 0]}
+                      />
+                      <Text
+                        text="🏛️ CENTRAL BANK"
+                        width={104}
+                        offsetX={52}
+                        offsetY={22}
+                        align="center"
+                        fill="#fde047"
+                        fontSize={6.5}
+                        fontStyle="bold"
+                        letterSpacing={0.8}
+                      />
+                      <Text
+                        text={node.text}
+                        width={100}
+                        offsetX={50}
+                        offsetY={7}
+                        align="center"
+                        fill="#fff"
+                        fontSize={10}
+                        fontStyle="bold"
+                      />
+                      <Text
+                        text={`匯率: 1Au = $${Math.round(bankRate).toLocaleString()}`}
+                        width={100}
+                        offsetX={50}
+                        offsetY={-8}
+                        align="center"
+                        fill="#10b981"
+                        fontSize={8.5}
+                        fontStyle="bold"
+                      />
+                    </>
+                  );
+                })()}
+                {node.type !== 'calculator' && node.type !== 'centralBank' && (
                   <>
                     <Text
                       text={node.text}
